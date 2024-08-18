@@ -1,7 +1,7 @@
 const express = require("express")
 const cors = require("cors")
 const session = require("express-session");
-const { dbConnect } = require("./config/db.config");
+const { userRouter } = require("./routes/user.routes");
 require('dotenv').config()
 
 const app = express();
@@ -16,11 +16,15 @@ app.use(cors({
 }));
 
 app.use(session({
+    name:'userSession',
     secret: process.env.SECRET_KEY,
     resave: false,
-    saveUninitialized: true
+    saveUninitialized: true,
+    cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
 }))
 
+
+app.use("/api/user",userRouter)
 
 
 app.listen(PORT, () => {

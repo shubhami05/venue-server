@@ -22,7 +22,7 @@ const UserSchema = new Schema({
     },
     role: {
         type: String,
-        default: 'User'
+        default: 'user'
     }
 },
     {
@@ -30,18 +30,18 @@ const UserSchema = new Schema({
     }
 )
 
-UserSchema.methods.generateToken = function () {
-    return jwt.sign(
-        {
-            _id: this._id,
-            role: this.role
-        },
-        process.env.TOKEN_SECRET,
-        {
-            expiresIn: '30d'
-        }
-    )
-}
+// UserSchema.methods.generateToken = function () {
+//     return jwt.sign(
+//         {
+//             _id: this._id,
+//             role: this.role
+//         },
+//         process.env.TOKEN_SECRET,
+//         {
+//             expiresIn: '14d'
+//         }
+//     )
+// }
 const UserModel = (mongoose.models.User) || mongoose.model("User", UserSchema)
 
 module.exports = { UserModel }
