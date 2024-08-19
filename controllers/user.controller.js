@@ -86,12 +86,13 @@ async function LoginApi(req, res) {
                 message: "Invalid credentials!"
             })
         }
+        const UserInfo = await UserModel.findById(isUserExist._id).select("-password -__v")
 
         req.session.user = { session: isUserExist, isAuth: true };
         return res.status(200).json({
             success: true,
             message: "User logined successfully!",
-            userdata: isUserExist
+            userdata: UserInfo
         })
 
     } catch (error) {
