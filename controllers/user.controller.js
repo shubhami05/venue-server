@@ -88,11 +88,10 @@ async function LoginApi(req, res) {
         }
         const UserInfo = await UserModel.findById(isUserExist._id).select("-password -__v")
 
-        req.session.user = { session: isUserExist, isAuth: true };
+        req.session.user = { session: UserInfo, isAuth: true };
         return res.status(200).json({
             success: true,
-            message: "User logined successfully!",
-            userdata: UserInfo
+            message: "User logined successfully!"
         })
 
     } catch (error) {
@@ -105,5 +104,35 @@ async function LoginApi(req, res) {
 }
 
 
+async function LogoutApi(req, res) {
 
-module.exports = { SignupApi, LoginApi }
+}
+
+async function FetchUserData(req, res) {
+    try {
+        const UserData = await req.user;
+
+        if (!UserData) {
+            return res.status(401).json({
+                success: false,
+                message: "User data not found, please login first!"
+            })
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "User data fetched successfully!",
+            userdata: UserData
+        })
+    }
+    catch (error) {
+        console.log(error)
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong"
+        })
+    }
+}
+
+
+module.exports = { SignupApi, LoginApi, LogoutApi, FetchUserData }
