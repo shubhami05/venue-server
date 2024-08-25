@@ -102,12 +102,29 @@ async function LoginApi(req, res) {
         })
     }
 }
+async function LogoutApi(req,res){
+    try {
+        const user = req.user;
+        if(!user){
+            return res.status(404).json({
+                success:false,
+                message:'User session not found'
+            })
+        }
+        await req.session.destroy();
+        return res.status(200).json({
+            success:true,
+            message:"User logged out successfully!"
+        })
 
-
-async function LogoutApi(req, res) {
-
+    } catch (error) {
+        console.log(error)
+        return res.status(500).json({
+            success:false,
+            message:"Something went wrong!"
+        })
+    }
 }
-
 async function FetchUserData(req, res) {
     try {
         const UserData = await req.user;
@@ -135,4 +152,4 @@ async function FetchUserData(req, res) {
 }
 
 
-module.exports = { SignupApi, LoginApi, LogoutApi, FetchUserData }
+module.exports = { SignupApi, LoginApi,LogoutApi, FetchUserData }
