@@ -1,7 +1,7 @@
 const express = require("express")
 const cors = require("cors")
 const session = require("express-session");
-const { userRouter } = require("./routes/user.routes");
+const { authRouter } = require("./routes/auth.routes");
 require('dotenv').config()
 
 const app = express();
@@ -16,7 +16,6 @@ app.use(cors({
 }));
 
 app.use(session({
-    name:'userSession',
     secret: process.env.SECRET_KEY,
     resave: false,
     saveUninitialized: true,
@@ -24,7 +23,7 @@ app.use(session({
 }))
 
 
-app.use("/api/user",userRouter)
+app.use("/api/auth",authRouter)
 
 
 app.listen(PORT, () => {
