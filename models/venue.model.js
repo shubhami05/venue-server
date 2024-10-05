@@ -10,14 +10,6 @@ const VenueSchema = new Schema({
         required: true,
         ref: "User"
     },
-    mobile: {
-        type: String,
-        required: true
-    },
-    email: {
-        type: String,
-        required: true
-    },
     type: {
         type: String,
         required: true
@@ -30,11 +22,25 @@ const VenueSchema = new Schema({
         type: String,
         required: true
     },
-    price: {
-        type: Number,
+    description: {
+        type: String,
         required: true
     },
-    LocationURL: {
+    rent: {
+        morning: {
+            type: Number,
+            required: true
+        },
+        evening: {
+            type: Number,
+            required: true
+        },
+        fullday: {
+            type: Number,
+            required: true
+        },
+    },
+    locationURL: {
         type: String
     },
     foodType: {
@@ -44,7 +50,23 @@ const VenueSchema = new Schema({
     parkingSpace: {
         type: Boolean,
         required: true
-    }
+    },
+    peopleCapacity: {
+        type: Number,
+        required: true
+    },
+    rooms: {
+        type: Number,
+        required: true
+    },
+    halls: {
+        type: Number,
+        required: true
+    },
+    photos: [{
+        type: String
+    }]
+
 })
 
 const VenueModel = (mongoose.models.Venue) || mongoose.model("Venue", VenueSchema)

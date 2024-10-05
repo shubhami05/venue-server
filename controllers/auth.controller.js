@@ -136,7 +136,6 @@ async function FetchUserData(req, res) {
                 message: "User data not found, please login first!"
             })
         }
-        console.log(UserData);
 
         return res.status(200).json({
             success: true,

@@ -43,6 +43,7 @@ async function VerifyAdmin(req, res, next) {
                 message: "Unauthorized user!"
             })
         }
+        req.admin = UserSessionFromDb;
         next();
     }
     catch (error) {
@@ -53,36 +54,38 @@ async function VerifyAdmin(req, res, next) {
         })
     }
 }
-// async function VerifyOwner(req, res, next) {
-//     try {
-//         const UserSession = await req.session.user;
-//         if (!UserSession) {
-//             return res.status(401).json({
-//                 success: false,
-//                 message: "Session not found, please Login!"
-//             })
-//         }
+async function VerifyOwner(req, res, next) {
+    try {
+        const UserSession = await req.session.user;
+        if (!UserSession) {
+            return res.status(401).json({
+                success: false,
+                message: "Session not found, please Login!"
+            })
+        }
 
-//         const UserSessionFromDB = await UserModel.findById(UserSession._id);
+        const UserSessionFromDB = await UserModel.findById(UserSession._id);
 
-//         if (!UserSessionFromDB.role === "admin") {
-//             return res.status(401).json({
-//                 success: false,
-//                 message: "Unauthorized user!"
-//             })
-//         }
-//         next();
-//     }
-//     catch (error) {
-//         console.log(error)
-//         return res.status(500).json({
-//             success: false,
-//             message: "Something went wrong"
-//         })
-//     }
-// }
+        if (!UserSessionFromDB.role === "owner") {
+            return res.status(401).json({
+                success: false,
+                message: "Unauthorized user!"
+            })
+        }
+        req.owner = UserSessionFromDB;
+        next();
+    }
+    catch (error) {
+        console.log(error)
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong"
+        })
+    }
+}
 
 module.exports = {
     VerifySession,
-    VerifyAdmin
+    VerifyAdmin,
+    VerifyOwner
 }

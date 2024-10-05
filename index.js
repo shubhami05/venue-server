@@ -2,6 +2,9 @@ const express = require("express")
 const cors = require("cors")
 const session = require("express-session");
 const { authRouter } = require("./routes/auth.routes");
+const { userRouter } = require("./routes/user.routes");
+const { ownerRouter } = require("./routes/owner.routes");
+const { adminRouter } = require("./routes/admin.routes");
 require('dotenv').config()
 
 const app = express();
@@ -16,6 +19,7 @@ app.use(cors({
 }));
 
 app.use(session({
+    name:"venueSession",
     secret: process.env.SECRET_KEY,
     resave: false,
     saveUninitialized: true,
@@ -23,7 +27,10 @@ app.use(session({
 }))
 
 
-app.use("/api/auth",authRouter)
+app.use("/api/auth",authRouter);
+app.use("/api/user",userRouter);
+app.use("/api/owner",ownerRouter);
+app.use("/api/admin",adminRouter);
 
 
 app.listen(PORT, () => {
