@@ -3,23 +3,22 @@ const { VerifyOwner } = require('../middlewares/auth.middleware');
 const { ListNewVenue } = require('../controllers/venue.controller');
 const ownerRouter = express.Router();
 
-ownerRouter.post("/venue/add", VerifyOwner, ListNewVenue);
-ownerRouter.get("/venue/fetch");
-ownerRouter.get("/venue/fetch/:id");
-ownerRouter.put("/venue/edit/:id");
-ownerRouter.delete("/venue/delete/:id");
+ownerRouter.post("/venue/send", VerifyOwner, ListNewVenue);
+ownerRouter.get("/venue/fetch"); //fetch only owner's venue
+ownerRouter.get("/venue/fetch/:venueId"); //fetch single venue with bookings and reviews
+ownerRouter.put("/venue/edit/:venueId");  //edit venue
+ownerRouter.delete("/venue/delete/:venueId");//can delete only his venue
 
-ownerRouter.get("/venue/bookings/:id");
-ownerRouter.get("/venue/reviews/:id");
+// ownerRouter.get("/venue/bookings/:venueId"); 
+// ownerRouter.get("/venue/reviews/:venueId");
 
-ownerRouter.get("/booking/fetch");
-ownerRouter.get("/booking/fetch/:id");
+ownerRouter.get("/booking/fetch"); //fetch all bookings
+ownerRouter.get("/booking/fetch/:bookingId"); //fetch single booking 
 
-ownerRouter.get("/review/fetch");
-ownerRouter.post("/review/reply/add/:id");
-ownerRouter.delete("/review/reply/delete/:id");
+ownerRouter.get("/review/fetch"); // all reviews for owner's venues
+ownerRouter.post("/review/reply/:reviewId"); //for replying to review
 
-ownerRouter.get("/profile");
-ownerRouter.put("/profile/edit");
+ownerRouter.get("/profile"); //user data
+ownerRouter.put("/profile/edit"); 
 
 module.exports = { ownerRouter }
