@@ -3,7 +3,8 @@ const { Schema, default: mongoose } = require("mongoose");
 const ContactSchema = new Schema({
     userId: {
         type: Schema.Types.ObjectId,
-        ref: "User"
+        ref: "User",
+        require:true
     },
     fullname: {
         type: String,

@@ -3,7 +3,10 @@ const adminRouter = express.Router();
 
 adminRouter.get("/user/fetch"); //(name,role,email,mobile)
 adminRouter.get("/user/fetch/:userId"); //single user with bookings/venues
-adminRouter.put("/user/change-role"); // change role from user to admin
+// adminRouter.put("/user/change-role"); // change role from user to owner 
+
+adminRouter.get("/owner-application/fetch"); //fetch all owner applications
+adminRouter.put("/owner-application/verify/:id"); //accept or reject owner application
 
 
 adminRouter.get("/venue/fetch"); //only status:true venues
@@ -18,6 +21,7 @@ adminRouter.get("/booking/fetch"); //fetch all bookings
 
 adminRouter.get("/contact/fetch"); //fetch all contacts
 adminRouter.post("/contact/reply"); //TODO: EMAIL INTERGRATION
+adminRouter.delete("/contact/delete/:contactId");
 
 //TODO: ADVANCE ONE, FOR ADMIN FUNCTIONALITIES
 adminRouter.post("/config");

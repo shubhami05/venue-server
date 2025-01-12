@@ -1,6 +1,6 @@
 const { Schema, default: mongoose } = require("mongoose");
 
-const ReviewSchema = new Schema({
+const InquirySchema = new Schema({
     userId: {
         type: Schema.Types.ObjectId,
         required: true,
@@ -23,6 +23,6 @@ const ReviewSchema = new Schema({
     }
 }, { timestamps: true })
 
-const ReviewModel = (mongoose.models.Review) || mongoose.model("Review", ReviewSchema)
+const InquiryMode = (mongoose.models.Inquiry) || mongoose.model("Inquiry", InquirySchema)
 
-module.exports = { ReviewModel }
+module.exports = { InquiryMode }

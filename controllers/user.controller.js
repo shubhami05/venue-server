@@ -20,12 +20,16 @@ async function RegisterOwner(req, res) {
             })
         }
 
-        UserData.role = "owner";
-        await UserData.save();
+        const { adharCard } = await req.body;
+        const response = new OwnerApplicationModel({
+            userId: UserData._id,
+            adharCard: adharCard
+        })
+        await response.save();
 
         return res.status(200).json({
             success: true,
-            message: "Owner registered successfully!"
+            message: "Owner Application Submitted Successfully!"
         })
 
     }

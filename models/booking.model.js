@@ -18,7 +18,8 @@ const BookingSchema = new Schema({
     timeslot: {
         // 0-morning, 1-evening, 2-fullday
         type: Number,
-        required: true
+        required: true,
+        enum:[0,1,2]
     },
     price: {
         type: Number,

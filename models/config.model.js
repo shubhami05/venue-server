@@ -9,6 +9,10 @@ const ConfigSchema = new Schema({
     }],
     cities:[{
         type:String
+    }],
+    featuredVenues:[{
+        type:Schema.Types.ObjectId,
+        ref:"Venue"
     }]
 })
 

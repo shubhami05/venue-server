@@ -7,9 +7,9 @@ const authRouter = express.Router();
 authRouter.post('/signup', SignupApi);
 authRouter.post('/login', LoginApi);
 
-authRouter.get('/logout',VerifySession,LogoutApi)
-authRouter.get('/fetch-session', VerifySession, FetchUserData)
+authRouter.get('/logout',VerifySession,LogoutApi);
+authRouter.get('/fetch-session', VerifySession, FetchUserData);
 
-authRouter.put('forgot-password') 
+authRouter.put('forgot-password');
 
 module.exports = { authRouter }

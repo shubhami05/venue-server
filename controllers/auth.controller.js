@@ -74,7 +74,7 @@ async function LoginApi(req, res) {
         if (!isUserExist) {
             return res.status(404).json({
                 success: false,
-                message: "Records not founded!"
+                message: "Invalid Credentials!"
             })
         }
 
@@ -82,7 +82,7 @@ async function LoginApi(req, res) {
         if (!isAuthenticatedUser) {
             return res.status(401).json({
                 success: false,
-                message: "Invalid credentials!"
+                message: "Invalid Credentials!"
             })
         }
         const UserInfo = await UserModel.findById(isUserExist._id).select("_id email mobile fullname role");

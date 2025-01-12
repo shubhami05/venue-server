@@ -1,13 +1,13 @@
 const express = require('express');
 const { VerifyOwner } = require('../middlewares/auth.middleware');
-const { ListNewVenue } = require('../controllers/venue.controller');
+const { ListNewVenue, getOwnerVenues, getVenue, editVenue, deleteVenue } = require('../controllers/venue.controller');
 const ownerRouter = express.Router();
 
 ownerRouter.post("/venue/send", VerifyOwner, ListNewVenue);
-ownerRouter.get("/venue/fetch"); //fetch only owner's venue
-ownerRouter.get("/venue/fetch/:venueId"); //fetch single venue with bookings and reviews
-ownerRouter.put("/venue/edit/:venueId");  //edit venue
-ownerRouter.delete("/venue/delete/:venueId");//can delete only his venue
+ownerRouter.get("/venue/fetch",VerifyOwner,getOwnerVenues); //fetch only owner's venue
+ownerRouter.get("/venue/fetch/:venueId",VerifyOwner,getVenue); //fetch single venue with bookings and reviews
+ownerRouter.put("/venue/edit/:venueId",VerifyOwner,editVenue);  //edit venue
+ownerRouter.delete("/venue/delete/:venueId",VerifyOwner,deleteVenue);//can delete only his venue
 
 // ownerRouter.get("/venue/bookings/:venueId"); 
 // ownerRouter.get("/venue/reviews/:venueId");
