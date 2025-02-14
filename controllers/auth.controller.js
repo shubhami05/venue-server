@@ -59,7 +59,7 @@ async function LoginApi(req, res) {
         if (email === "" || password === "") {
             return res.status(412).json({
                 success: false,
-                message: "All feilds are required!"
+                message: "All fields are required!"
             })
         }
 
@@ -74,7 +74,7 @@ async function LoginApi(req, res) {
         if (!isUserExist) {
             return res.status(404).json({
                 success: false,
-                message: "Invalid Credentials!"
+                message: "Invalid User!"
             })
         }
 
@@ -144,7 +144,7 @@ async function FetchUserData(req, res) {
         })
     }
     catch (error) {
-        console.log(error)
+        console.log("Can't fetch user data",error)
         return res.status(500).json({
             success: false,
             message: "Something went wrong"

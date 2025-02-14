@@ -13,7 +13,7 @@ adminRouter.get("/venue/fetch"); //only status:true venues
 adminRouter.get("/venue/fetch/:venueId"); //single venue with booking and reviews
 adminRouter.get("/venue/request"); //req. from owner to add venue { status : false }
 adminRouter.put("/venue/request/verify/:venueId"); // accept or reject venue req. by changing status
-adminRouter.delete("/venue/remove/:venueId"); //just change status to false
+adminRouter.delete("/venue/unverify/:venueId"); //just change status to false
 
 adminRouter.get("/review/fetch"); //fetch all reviews
 

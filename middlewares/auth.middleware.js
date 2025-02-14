@@ -13,11 +13,12 @@ async function VerifySession(req, res, next) {
             })
         }
         req.user = UserSession;
+        console.log(UserSession);
         next();
 
     }
     catch (error) {
-        console.log(error)
+        console.log("Auth middleware error:",error);
         return res.status(500).json({
             success: false,
             message: "Something went wrong"

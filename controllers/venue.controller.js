@@ -23,7 +23,8 @@ async function ListNewVenue(req, res) {
             parking,
             locationURL,
             rooms,
-            halls
+            halls,
+            events
         } = await req.body;
 
         const photos = await req.files;
@@ -75,7 +76,8 @@ async function ListNewVenue(req, res) {
             withFoodRent,
             food,
             decoration,
-            parking
+            parking,
+            events
         });
 
         await venue.save();
@@ -241,7 +243,7 @@ const getOwnerVenues = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            venue
+            venues
         });
     } catch (error) {
         return res.status(500).json({
@@ -257,8 +259,15 @@ const getUserVenues = async (req, res) => {
     try {
         const venues = await VenueModel.find();
 
+        if(!venues){
+            return res.status(404).json({
+                success:false,
+                message:"No any venue available currently!"
+            })
+        }
         return res.status(200).json({
             success: true,
+            message:"Venues fetched successfully!",
             venues
         });
     } catch (error) {
@@ -270,7 +279,7 @@ const getUserVenues = async (req, res) => {
     }
 };
 // Get All Venues
-const getAllVenues = async (req, res) => {
+const getAdminVenues = async (req, res) => {
     try {
         const venues = await VenueModel.find();
 
@@ -289,10 +298,10 @@ const getAllVenues = async (req, res) => {
 
 module.exports = {
     ListNewVenue,
-    addVenue,
     editVenue,
     deleteVenue,
     getVenue,
     getOwnerVenues,
-    getAllVenues
+    getAdminVenues,
+    getUserVenues
 };
