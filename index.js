@@ -13,7 +13,7 @@ const PORT = process.env.PORT || 8000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cors({
-    origin: [process.env.USERPANEL_PORT, process.env.OWNERPANEL_PORT, process.env.ADMINPANEL_PORT],
+    origin: [process.env.CLIENT_PORT, 3000],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE']
 }));
