@@ -6,7 +6,9 @@ async function ListNewVenue(req, res) {
     try {
         const owner = await req.owner;
         const ownerId = owner._id;
-        const {
+        
+        // Extract form data
+        let {
             name,
             type,
             address,
@@ -24,29 +26,66 @@ async function ListNewVenue(req, res) {
             locationURL,
             rooms,
             halls,
-            events
-        } = await req.body;
+            events,
+            amenities,
+            rules,
+            cancellationPolicy
+        } = req.body;
 
-        const photos = await req.files;
+        // Parse JSON strings if they exist
+        try {
+            if (typeof otherFacilities === 'string') otherFacilities = JSON.parse(otherFacilities);
+            if (typeof restrictions === 'string') restrictions = JSON.parse(restrictions);
+            if (typeof events === 'string') events = JSON.parse(events);
+            if (typeof amenities === 'string') amenities = JSON.parse(amenities);
+            if (typeof withoutFoodRent === 'string') withoutFoodRent = JSON.parse(withoutFoodRent);
+            if (typeof withFoodRent === 'string') withFoodRent = JSON.parse(withFoodRent);
+            if (typeof food === 'string') food = JSON.parse(food);
+            if (typeof decoration === 'string') decoration = JSON.parse(decoration);
+            if (typeof parking === 'string') parking = JSON.parse(parking);
+        } catch (parseError) {
+            console.error("Error parsing JSON data:", parseError);
+            return res.status(400).json({
+                success: false,
+                message: "Invalid data format. Please check your input."
+            });
+        }
 
+        // Get uploaded files
+        const photos = req.files?.photos || req.files?.images || [];
+        
+        // Validate required fields
+        if (!name || !type || !address || !city) {
+            return res.status(400).json({
+                success: false,
+                message: "Required fields are missing. Please fill all required fields."
+            });
+        }
+
+        // Validate food details
         if (!food || (food.providedByVenue && !food.foodMenu)) {
-            return res.status(404).json({
+            return res.status(400).json({
                 success: false,
                 message: "Some food details are missing, please fill it or contact support!"
-            })
+            });
         }
+        
+        // Validate rent details
         if (withFoodRent && (!withFoodRent.morning || !withFoodRent.evening || !withFoodRent.fullday)) {
-            return res.status(404).json({
+            return res.status(400).json({
                 success: false,
                 message: "Some rent details are missing, please fill it or contact support!"
-            })
+            });
         }
+        
         if (withoutFoodRent && (!withoutFoodRent.morning || !withoutFoodRent.evening || !withoutFoodRent.fullday)) {
-            return res.status(404).json({
+            return res.status(400).json({
                 success: false,
                 message: "Some rent details are missing, please fill it or contact support!"
-            })
+            });
         }
+        
+        // Validate parking details
         if (parking && parking.available && !parking.capacity) {
             return res.status(400).json({
                 success: false,
@@ -54,9 +93,22 @@ async function ListNewVenue(req, res) {
             });
         }
 
-        const imageUrls = await handleMultipleUpload(photos);
+        // Handle file uploads
+        let imageUrls = [];
+        if (photos && photos.length > 0) {
+            imageUrls = await handleMultipleUpload(photos);
+            if (!imageUrls || imageUrls.length === 0) {
+                return res.status(500).json({
+                    success: false,
+                    message: "Failed to upload images. Please try again."
+                });
+            }
+        }
+        
+        // Connect to database
         await dbConnect();
 
+        // Create venue object
         const venue = new VenueModel({
             name,
             ownerId,
@@ -69,17 +121,21 @@ async function ListNewVenue(req, res) {
             rooms,
             halls,
             cancellation,
-            otherFacilities,
-            restrictions,
+            otherFacilities: otherFacilities || [],
+            restrictions: restrictions || [],
             photos: imageUrls,
             withoutFoodRent,
             withFoodRent,
             food,
             decoration,
             parking,
-            events
+            events: events || [],
+            amenities: amenities || [],
+            rules,
+            cancellationPolicy
         });
 
+        // Save venue to database
         await venue.save();
 
         return res.status(200).json({
@@ -89,7 +145,7 @@ async function ListNewVenue(req, res) {
         });
 
     } catch (error) {
-        console.error(error);
+        console.error("Venue creation error:", error);
         return res.status(500).json({
             success: false,
             message: "Something went wrong!",
@@ -103,7 +159,9 @@ const editVenue = async (req, res) => {
     try {
         const { id } = req.params;
         const ownerId = await req.owner._id;
-        const {
+        
+        // Extract form data
+        let {
             name,
             type,
             bookingPay,
@@ -120,10 +178,33 @@ const editVenue = async (req, res) => {
             withFoodRent,
             food,
             decoration,
-            parking
-        } = await req.body;
-        const photos = await req.files;
+            parking,
+            events,
+            amenities,
+            rules,
+            cancellationPolicy
+        } = req.body;
 
+        // Parse JSON strings if they exist
+        try {
+            if (typeof otherFacilities === 'string') otherFacilities = JSON.parse(otherFacilities);
+            if (typeof restrictions === 'string') restrictions = JSON.parse(restrictions);
+            if (typeof events === 'string') events = JSON.parse(events);
+            if (typeof amenities === 'string') amenities = JSON.parse(amenities);
+            if (typeof withoutFoodRent === 'string') withoutFoodRent = JSON.parse(withoutFoodRent);
+            if (typeof withFoodRent === 'string') withFoodRent = JSON.parse(withFoodRent);
+            if (typeof food === 'string') food = JSON.parse(food);
+            if (typeof decoration === 'string') decoration = JSON.parse(decoration);
+            if (typeof parking === 'string') parking = JSON.parse(parking);
+        } catch (parseError) {
+            console.error("Error parsing JSON data:", parseError);
+            return res.status(400).json({
+                success: false,
+                message: "Invalid data format. Please check your input."
+            });
+        }
+
+        const photos = req.files?.photos || req.files?.images || [];
 
         const venue = await VenueModel.findOne({ _id: id, ownerId });
 
@@ -133,10 +214,15 @@ const editVenue = async (req, res) => {
                 message: "Venue not found!"
             });
         }
+        
         if (photos && photos.length > 0) {
             const uploadedPhotos = await handleMultipleUpload(photos);
-            venue.photos = uploadedPhotos;
+            if (uploadedPhotos && uploadedPhotos.length > 0) {
+                venue.photos = uploadedPhotos;
+            }
         }
+        
+        // Update venue fields
         venue.name = name || venue.name;
         venue.type = type || venue.type;
         venue.bookingPay = bookingPay || venue.bookingPay;
@@ -146,7 +232,7 @@ const editVenue = async (req, res) => {
         venue.locationURL = locationURL || venue.locationURL;
         venue.rooms = rooms || venue.rooms;
         venue.halls = halls || venue.halls;
-        venue.cancellation = cancellation || venue.cancellation;
+        venue.cancellation = cancellation !== undefined ? cancellation : venue.cancellation;
         venue.otherFacilities = otherFacilities || venue.otherFacilities;
         venue.restrictions = restrictions || venue.restrictions;
         venue.withoutFoodRent = withoutFoodRent || venue.withoutFoodRent;
@@ -154,6 +240,10 @@ const editVenue = async (req, res) => {
         venue.food = food || venue.food;
         venue.decoration = decoration || venue.decoration;
         venue.parking = parking || venue.parking;
+        venue.events = events || venue.events;
+        venue.amenities = amenities || venue.amenities;
+        venue.rules = rules !== undefined ? rules : venue.rules;
+        venue.cancellationPolicy = cancellationPolicy !== undefined ? cancellationPolicy : venue.cancellationPolicy;
 
         await venue.save();
 
@@ -163,6 +253,7 @@ const editVenue = async (req, res) => {
             venue
         });
     } catch (error) {
+        console.error("Venue update error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error!",
@@ -175,8 +266,9 @@ const editVenue = async (req, res) => {
 const deleteVenue = async (req, res) => {
     try {
         const { id } = req.params;
+        const ownerId = req.owner._id;
 
-        const venue = await VenueModel.findById(id);
+        const venue = await VenueModel.findOne({ _id: id, ownerId });
 
         if (!venue) {
             return res.status(404).json({
@@ -185,13 +277,14 @@ const deleteVenue = async (req, res) => {
             });
         }
 
-        await venue.remove();
+        await VenueModel.deleteOne({ _id: id });
 
         return res.status(200).json({
             success: true,
             message: "Venue deleted successfully!"
         });
     } catch (error) {
+        console.error("Venue delete error:", error);
         return res.status(500).json({
             success: false,
             message: "Server error!",
@@ -227,19 +320,12 @@ const getVenue = async (req, res) => {
     }
 };
 
-//Get Owner's Venues
+// Get Owner's Venues
 const getOwnerVenues = async (req, res) => {
     try {
-        const { ownerId } = req.params;
+        const ownerId = req.owner._id;
 
         const venues = await VenueModel.find({ ownerId });
-
-        if (!venues || venues.length === 0) {
-            return res.status(404).json({
-                success: false,
-                message: "No venues found for this owner!"
-            });
-        }
 
         return res.status(200).json({
             success: true,
@@ -257,17 +343,18 @@ const getOwnerVenues = async (req, res) => {
 // Get All Venues for users
 const getUserVenues = async (req, res) => {
     try {
-        const venues = await VenueModel.find();
+        const venues = await VenueModel.find({ status: 'approved' });
 
-        if(!venues){
+        if(!venues || venues.length === 0){
             return res.status(404).json({
-                success:false,
-                message:"No any venue available currently!"
-            })
+                success: false,
+                message: "No venues available currently!"
+            });
         }
+        
         return res.status(200).json({
             success: true,
-            message:"Venues fetched successfully!",
+            message: "Venues fetched successfully!",
             venues
         });
     } catch (error) {
@@ -278,7 +365,8 @@ const getUserVenues = async (req, res) => {
         });
     }
 };
-// Get All Venues
+
+// Get All Venues for admin
 const getAdminVenues = async (req, res) => {
     try {
         const venues = await VenueModel.find();
@@ -302,6 +390,6 @@ module.exports = {
     deleteVenue,
     getVenue,
     getOwnerVenues,
-    getAdminVenues,
-    getUserVenues
+    getUserVenues,
+    getAdminVenues
 };

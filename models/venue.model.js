@@ -72,8 +72,8 @@ const ParkingSchema = new Schema({
         type: Boolean,
         required: true
     },
-    capactiy: {
-        type: Number,
+    capacity: {
+        type: String,
         required: this.available
     },
 })
@@ -158,7 +158,17 @@ const VenueSchema = new Schema({
     food: FoodSchema,
     decoration: DecorationSchema,
     parking: ParkingSchema,
-
+    amenities: [{
+        type: String
+    }],
+    rules: {
+        type: String,
+        default: ''
+    },
+    cancellationPolicy: {
+        type: String,
+        default: ''
+    }
 }, { timestamps: true })
 
 const VenueModel = (mongoose.models.Venue) || mongoose.model("Venue", VenueSchema)

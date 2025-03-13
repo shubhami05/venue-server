@@ -14,7 +14,6 @@ async function uploadOnCloudinary(localFilePath) {
         const response = await cloudinary.uploader.upload(localFilePath, {
             resource_type: "auto"
         })
-        console.log("File uploaded successfully on cloudinary", response.url);
         return response;
 
     } catch (error) {
@@ -34,7 +33,6 @@ async function handleMultipleUpload(imageArray) {
         return imageUrls;
     }
     catch (error) {
-        console.log(error)
         return null
     }
 }

@@ -1,5 +1,9 @@
 const express = require("express")
+const { VerifyAdmin } = require("../middlewares/auth.middleware");
 const adminRouter = express.Router();
+
+// Apply VerifyAdmin middleware to all admin routes
+adminRouter.use(VerifyAdmin);
 
 adminRouter.get("/user/fetch"); //(name,role,email,mobile)
 adminRouter.get("/user/fetch/:userId"); //single user with bookings/venues
