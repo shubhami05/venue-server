@@ -1,11 +1,19 @@
-const { handleMultipleUpload } = require("../config/cloudinary.config");
+const { uploadToCloudinary } = require("../config/cloudinary.config");
 const { dbConnect } = require("../config/db.config");
 const { VenueModel } = require("../models/venue.model");
+const { cleanupTempFiles } = require('../middlewares/multer.middleware');
 
 async function ListNewVenue(req, res) {
+    const user = await req.user; // Assuming req.user is the object being accessed
+    if (!user || !user._id) {
+        return res.status(400).json({
+            success: false,
+            message: "User ID is missing"
+        });
+    }
+
     try {
-        const owner = await req.owner;
-        const ownerId = owner._id;
+        const ownerId = user._id;
         
         // Extract form data
         let {
@@ -53,7 +61,8 @@ async function ListNewVenue(req, res) {
 
         // Get uploaded files
         const photos = req.files?.photos || req.files?.images || [];
-        
+        console.log(`Received ${photos.length} photos for upload`);
+
         // Validate required fields
         if (!name || !type || !address || !city) {
             return res.status(400).json({
@@ -63,25 +72,25 @@ async function ListNewVenue(req, res) {
         }
 
         // Validate food details
-        if (!food || (food.providedByVenue && !food.foodMenu)) {
-            return res.status(400).json({
-                success: false,
-                message: "Some food details are missing, please fill it or contact support!"
-            });
-        }
+        // if (!food) {
+        //     return res.status(400).json({
+        //         success: false,
+        //         message: "Some food details are missing, please fill it or contact support!"
+        //     });
+        // }
         
         // Validate rent details
-        if (withFoodRent && (!withFoodRent.morning || !withFoodRent.evening || !withFoodRent.fullday)) {
+        if (food.providedByVenue && (!withFoodRent.morning || !withFoodRent.evening || !withFoodRent.fullday)) {
             return res.status(400).json({
                 success: false,
                 message: "Some rent details are missing, please fill it or contact support!"
             });
         }
         
-        if (withoutFoodRent && (!withoutFoodRent.morning || !withoutFoodRent.evening || !withoutFoodRent.fullday)) {
+        if (!withoutFoodRent.morning || !withoutFoodRent.evening || !withoutFoodRent.fullday) {
             return res.status(400).json({
                 success: false,
-                message: "Some rent details are missing, please fill it or contact support!"
+                message: "Some with out rent details are missing, please fill it or contact support!"
             });
         }
         
@@ -96,8 +105,9 @@ async function ListNewVenue(req, res) {
         // Handle file uploads
         let imageUrls = [];
         if (photos && photos.length > 0) {
-            imageUrls = await handleMultipleUpload(photos);
+            imageUrls = await uploadToCloudinary(photos);
             if (!imageUrls || imageUrls.length === 0) {
+                await req.cleanupFiles();
                 return res.status(500).json({
                     success: false,
                     message: "Failed to upload images. Please try again."
@@ -138,6 +148,9 @@ async function ListNewVenue(req, res) {
         // Save venue to database
         await venue.save();
 
+        // Clean up temp files after successful save
+        await req.cleanupFiles();
+
         return res.status(200).json({
             success: true,
             message: "Venue added successfully!",
@@ -146,6 +159,9 @@ async function ListNewVenue(req, res) {
 
     } catch (error) {
         console.error("Venue creation error:", error);
+        if (req.files) {
+            await cleanupTempFiles(req.files);
+        }
         return res.status(500).json({
             success: false,
             message: "Something went wrong!",
@@ -323,7 +339,7 @@ const getVenue = async (req, res) => {
 // Get Owner's Venues
 const getOwnerVenues = async (req, res) => {
     try {
-        const ownerId = req.owner._id;
+        const ownerId = await req.user._id;
 
         const venues = await VenueModel.find({ ownerId });
 

@@ -1,6 +1,7 @@
 const express = require("express")
 const cors = require("cors")
 const cookieParser = require("cookie-parser")
+const multer = require('multer');
 const { authRouter } = require("./routes/auth.routes");
 const { userRouter } = require("./routes/user.routes");
 const { ownerRouter } = require("./routes/owner.routes");
@@ -36,7 +37,19 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
-app.use(cookieParser(process.env.COOKIE_SECRET || process.env.SECRET_KEY));
+app.use(cookieParser(process.env.COOKIE_SECRET));
+
+// const upload = multer({
+//   limits: { fileSize: 1024 * 1024 * 5 }, // 5MB file size limit
+//   fileFilter: (req, file, cb) => {
+//     // ...existing code...
+//   }
+// });
+
+// app.post('/upload', upload.fields([{ name: 'images', maxCount: 10 }]), (req, res) => {
+//   // ...existing code...
+//   res.send('Files uploaded successfully');
+// });
 
 // Add a test route to check CORS
 app.get('/api/test-cors', (req, res) => {

@@ -7,7 +7,7 @@ const jwt = require("jsonwebtoken");
 const generateToken = (user) => {
     return jwt.sign(
         { id: user._id, role: user.role },
-        process.env.JWT_SECRET || "venueserv-secret-key",
+        process.env.COOKIE_SECRET || "venueserv-secret-key",
         { expiresIn: "7d" }
     );
 };

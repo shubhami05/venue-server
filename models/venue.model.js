@@ -25,24 +25,6 @@ const WithFoodRentSchema = new Schema({
         type: Number,
     },
 })
-// const TimingSchema = new Schema({
-//     morning: {
-//         from: {
-//             type: String
-//         },
-//         to: {
-//             type: String
-//         }
-//     },
-//     evening: {
-//         from: {
-//             type: String
-//         },
-//         to: {
-//             type: String
-//         }
-//     }
-// })
 const FoodSchema = new Schema({
     outsideAllowed: {
         type: Boolean,
@@ -51,10 +33,6 @@ const FoodSchema = new Schema({
     providedByVenue: {
         type: Boolean,
         required: true
-    },
-    foodMenu:{
-        type:String,
-        required:this.providedByVenue
     }
 })
 const DecorationSchema = new Schema({
@@ -98,7 +76,6 @@ const VenueSchema = new Schema({
         type: String,
         required: true
     },
-    // TODO: Add Rs. to pay at advance booking online 
     bookingPay: {
         type: Number,
         required: true
@@ -154,7 +131,6 @@ const VenueSchema = new Schema({
     }],
     withoutFoodRent: WithoutFoodRentSchema,
     withFoodRent: WithFoodRentSchema,//per person rent
-    // timing: TimingSchema,
     food: FoodSchema,
     decoration: DecorationSchema,
     parking: ParkingSchema,

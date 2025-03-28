@@ -1,42 +1,38 @@
-const cloudinary = require('cloudinary').v2
-const fs = require("fs")
+require('dotenv').config();
+const cloudinary = require('cloudinary').v2;
+const fs = require('fs');
+const util = require('util');
+const unlinkFile = util.promisify(fs.unlink);
 
+// Configure Cloudinary
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
-    api_secret: process.env.CLOUDINARY_API_SECRET 
+    api_secret: process.env.CLOUDINARY_API_SECRET
 });
 
-async function uploadOnCloudinary(localFilePath) {
-    try {
-        if (!localFilePath) return null
-
-        const response = await cloudinary.uploader.upload(localFilePath, {
-            resource_type: "auto"
-        })
-        return response;
-
-    } catch (error) {
-        fs.unlinkSync(localFilePath) //it will remove file from server
-        return null
-    }
-}
-async function handleMultipleUpload(imageArray) {
-    try {
-        if (imageArray.length === 0) return null
-        const uploadPromises = imageArray.map(async (img) => {
-            const response = await uploadOnCloudinary(img.path);
-            return response.url;
+const uploadToCloudinary = async (files) => {
+    const uploadPromises = files.map(file => {
+        return new Promise((resolve, reject) => {
+            console.log(`Uploading file to Cloudinary: ${file.path}`);
+            cloudinary.uploader.upload(file.path, (error, result) => {
+                if (error) {
+                    console.error(`Cloudinary upload error for file ${file.path}:`, error);
+                    reject(error);
+                } else {
+                    console.log(`Uploaded file to Cloudinary: ${result.secure_url}`);
+                    resolve(result.secure_url);
+                }
+            });
         });
+    });
 
-        const imageUrls = await Promise.all(uploadPromises);
-        return imageUrls;
-    }
-    catch (error) {
-        return null
-    }
-}
-module.exports = {
-    uploadOnCloudinary,
-    handleMultipleUpload
-}
+    const results = await Promise.all(uploadPromises);
+
+    // Clean up local files after upload
+    await Promise.all(files.map(file => unlinkFile(file.path)));
+
+    return results;
+};
+
+module.exports = { uploadToCloudinary };

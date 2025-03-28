@@ -1,30 +1,34 @@
 const express = require("express")
 const { VerifyAdmin } = require("../middlewares/auth.middleware");
+const { getAllUsers, getAllOwners, changeVenueStatus, getPendingVenues } = require("../controllers/admin.controller");
+const { getVenue, getAllVenues } = require("../controllers/venue.controller");
 const adminRouter = express.Router();
 
 // Apply VerifyAdmin middleware to all admin routes
 adminRouter.use(VerifyAdmin);
 
-adminRouter.get("/user/fetch"); //(name,role,email,mobile)
-adminRouter.get("/user/fetch/:userId"); //single user with bookings/venues
-// adminRouter.put("/user/change-role"); // change role from user to owner 
+// User management routes
 
-adminRouter.get("/owner-application/fetch"); //fetch all owner applications
-adminRouter.put("/owner-application/verify/:id"); //accept or reject owner application
+adminRouter.get("/user/fetch", getAllUsers);
 
+// Owner management routes
+adminRouter.get("/owner/fetch", getAllOwners);
 
-adminRouter.get("/venue/fetch"); //only status:true venues
-adminRouter.get("/venue/fetch/:venueId"); //single venue with booking and reviews
-adminRouter.get("/venue/request"); //req. from owner to add venue { status : false }
-adminRouter.put("/venue/request/verify/:venueId"); // accept or reject venue req. by changing status
-adminRouter.delete("/venue/unverify/:venueId"); //just change status to false
+// Venue management routes
+adminRouter.get("/venue/fetch", getAllVenues);
+adminRouter.get("/venue/fetch/:venueId", getVenue);
+adminRouter.get("/venue/pending", getPendingVenues);
+adminRouter.put("/venue/status/:venueId", changeVenueStatus);
 
-adminRouter.get("/review/fetch"); //fetch all reviews
+// Review management routes
+adminRouter.get("/review/fetch");
 
-adminRouter.get("/booking/fetch"); //fetch all bookings
+// Booking management routes
+adminRouter.get("/booking/fetch");
 
-adminRouter.get("/contact/fetch"); //fetch all contacts
-adminRouter.post("/contact/reply"); //TODO: EMAIL INTERGRATION
+// Contact management routes
+adminRouter.get("/contact/fetch");
+adminRouter.post("/contact/reply");
 adminRouter.delete("/contact/delete/:contactId");
 
 //TODO: ADVANCE ONE, FOR ADMIN FUNCTIONALITIES

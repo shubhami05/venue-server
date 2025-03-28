@@ -16,7 +16,7 @@ async function VerifyCookie(req, res, next) {
         }
         
         // Verify token
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || "venueserv-secret-key");
+        const decoded = jwt.verify(token, process.env.COOKIE_SECRET);
         
         // Connect to database
         await dbConnect();
@@ -108,40 +108,9 @@ async function VerifyOwner(req, res, next) {
     }
 }
 
-// Legacy session verification (deprecated)
-async function VerifySession(req, res, next) {
-    console.warn("VerifySession is deprecated. Please use VerifyCookie instead.");
-    try {
-        if (!req.session || !req.session.user || !req.session.user.isAuth) {
-            return res.status(401).json({
-                success: false,
-                message: "Please login first!"
-            });
-        }
-        
-        await dbConnect();
-        const UserSessionFromDB = await UserModel.findById(req.session.user.session._id).select("-password");
-        
-        if (!UserSessionFromDB) {
-            return res.status(401).json({
-                success: false,
-                message: "User not found. Please login again."
-            });
-        }
-        
-        req.user = UserSessionFromDB;
-        next();
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Something went wrong!"
-        });
-    }
-}
 
 module.exports = {
     VerifyCookie,
     VerifyAdmin,
-    VerifyOwner,
-    VerifySession // For backward compatibility
+    VerifyOwner
 };
