@@ -4,25 +4,26 @@ const { ListNewVenue, getOwnerVenues, getVenue, editVenue, deleteVenue } = requi
 const { upload } = require('../middlewares/multer.middleware');
 const ownerRouter = express.Router();
 
+ownerRouter.use(VerifyOwner); // Verify owner for all routes   
 // Venue routes
-ownerRouter.post("/venue/send", VerifyOwner, upload, ListNewVenue);
-ownerRouter.get("/venue/fetch", VerifyOwner, getOwnerVenues); // fetch only owner's venues
-ownerRouter.get("/venue/fetch/:venueId", VerifyOwner, getVenue); // fetch single venue 
-ownerRouter.put("/venue/edit/:venueId", VerifyOwner, upload, editVenue); // edit venue
-ownerRouter.delete("/venue/delete/:venueId", VerifyOwner, deleteVenue); // can delete only his venue
+ownerRouter.post("/venue/send", upload, ListNewVenue);
+ownerRouter.get("/venue/fetch", getOwnerVenues); // fetch only owner's venues
+ownerRouter.get("/venue/fetch/:venueId", getVenue); // fetch single venue 
+ownerRouter.put("/venue/edit/:venueId", upload, editVenue); // edit venue
+ownerRouter.delete("/venue/delete/:venueId", deleteVenue); // can delete only his venue
 
 // Booking routes
-ownerRouter.get("/booking/fetch", VerifyOwner); // fetch all bookings
-ownerRouter.get("/booking/fetch/:venueId", VerifyOwner); // fetch all bookings of a venue
-ownerRouter.get("/booking/fetch/:bookingId", VerifyOwner); // fetch single booking 
+ownerRouter.get("/booking/fetch"); // fetch all bookings
+ownerRouter.get("/booking/fetch/:venueId"); // fetch all bookings of a venue
+ownerRouter.get("/booking/fetch/:bookingId"); // fetch single booking 
 
 // Review routes
-ownerRouter.get("/review/fetch", VerifyOwner); // all reviews for owner's venues
-ownerRouter.get("/review/fetch/:venueId", VerifyOwner); // fetch all reviews of a venue
-ownerRouter.post("/review/reply/:reviewId", VerifyOwner); // for replying to review
+ownerRouter.get("/review/fetch"); // all reviews for owner's venues
+ownerRouter.get("/review/fetch/:venueId"); // fetch all reviews of a venue
+ownerRouter.post("/review/reply/:reviewId"); // for replying to review
 
 // Profile routes
-ownerRouter.get("/profile", VerifyOwner); // user data
-ownerRouter.put("/profile/edit", VerifyOwner); 
+ownerRouter.get("/profile"); // user data
+ownerRouter.put("/profile/edit"); 
 
 module.exports = { ownerRouter }

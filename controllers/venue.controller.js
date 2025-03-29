@@ -14,7 +14,7 @@ async function ListNewVenue(req, res) {
 
     try {
         const ownerId = user._id;
-        
+
         // Extract form data
         let {
             name,
@@ -78,7 +78,7 @@ async function ListNewVenue(req, res) {
         //         message: "Some food details are missing, please fill it or contact support!"
         //     });
         // }
-        
+
         // Validate rent details
         if (food.providedByVenue && (!withFoodRent.morning || !withFoodRent.evening || !withFoodRent.fullday)) {
             return res.status(400).json({
@@ -86,14 +86,14 @@ async function ListNewVenue(req, res) {
                 message: "Some rent details are missing, please fill it or contact support!"
             });
         }
-        
+
         if (!withoutFoodRent.morning || !withoutFoodRent.evening || !withoutFoodRent.fullday) {
             return res.status(400).json({
                 success: false,
                 message: "Some with out rent details are missing, please fill it or contact support!"
             });
         }
-        
+
         // Validate parking details
         if (parking && parking.available && !parking.capacity) {
             return res.status(400).json({
@@ -114,7 +114,7 @@ async function ListNewVenue(req, res) {
                 });
             }
         }
-        
+
         // Connect to database
         await dbConnect();
 
@@ -175,7 +175,7 @@ const editVenue = async (req, res) => {
     try {
         const { id } = req.params;
         const ownerId = await req.owner._id;
-        
+
         // Extract form data
         let {
             name,
@@ -230,14 +230,14 @@ const editVenue = async (req, res) => {
                 message: "Venue not found!"
             });
         }
-        
+
         if (photos && photos.length > 0) {
             const uploadedPhotos = await handleMultipleUpload(photos);
             if (uploadedPhotos && uploadedPhotos.length > 0) {
                 venue.photos = uploadedPhotos;
             }
         }
-        
+
         // Update venue fields
         venue.name = name || venue.name;
         venue.type = type || venue.type;
@@ -357,17 +357,17 @@ const getOwnerVenues = async (req, res) => {
 };
 
 // Get All Venues for users
-const getUserVenues = async (req, res) => {
+const getAllVenues = async (req, res) => {
     try {
         const venues = await VenueModel.find({ status: 'approved' });
 
-        if(!venues || venues.length === 0){
+        if (!venues || venues.length === 0) {
             return res.status(404).json({
                 success: false,
                 message: "No venues available currently!"
             });
         }
-        
+
         return res.status(200).json({
             success: true,
             message: "Venues fetched successfully!",
@@ -382,23 +382,6 @@ const getUserVenues = async (req, res) => {
     }
 };
 
-// Get All Venues for admin
-const getAdminVenues = async (req, res) => {
-    try {
-        const venues = await VenueModel.find();
-
-        return res.status(200).json({
-            success: true,
-            venues
-        });
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Server error!",
-            error: error.message
-        });
-    }
-};
 
 module.exports = {
     ListNewVenue,
@@ -406,6 +389,5 @@ module.exports = {
     deleteVenue,
     getVenue,
     getOwnerVenues,
-    getUserVenues,
-    getAdminVenues
+    getAllVenues
 };
