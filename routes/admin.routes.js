@@ -1,7 +1,8 @@
 const express = require("express")
 const { VerifyAdmin } = require("../middlewares/auth.middleware");
-const { getAllUsers, getAllOwners, changeVenueStatus, getPendingVenues } = require("../controllers/admin.controller");
+const { getAllUsers, getAllOwners, changeVenueStatus, getPendingVenues, getPendingOwnerApplications, changeOwnerStatus } = require("../controllers/admin.controller");
 const { getVenue, getAllVenues } = require("../controllers/venue.controller");
+const { getAllBookings } = require("../controllers/booking.controller");
 const adminRouter = express.Router();
 
 // Apply VerifyAdmin middleware to all admin routes
@@ -13,6 +14,8 @@ adminRouter.get("/user/fetch", getAllUsers);
 
 // Owner management routes
 adminRouter.get("/owner/fetch", getAllOwners);
+adminRouter.get("/owner/pending", getPendingOwnerApplications);
+adminRouter.put("/owner/status/:appId", changeOwnerStatus);
 
 // Venue management routes
 adminRouter.get("/venue/fetch", getAllVenues);
@@ -24,7 +27,7 @@ adminRouter.put("/venue/status/:venueId", changeVenueStatus);
 adminRouter.get("/review/fetch");
 
 // Booking management routes
-adminRouter.get("/booking/fetch");
+adminRouter.get("/bookings/fetch", getAllBookings);
 
 // Contact management routes
 adminRouter.get("/contact/fetch");

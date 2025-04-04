@@ -2,6 +2,7 @@ const { uploadToCloudinary } = require("../config/cloudinary.config");
 const { dbConnect } = require("../config/db.config");
 const { VenueModel } = require("../models/venue.model");
 const { cleanupTempFiles } = require('../middlewares/multer.middleware');
+const { default: mongoose } = require("mongoose");
 
 async function ListNewVenue(req, res) {
     const user = await req.user; // Assuming req.user is the object being accessed
@@ -173,8 +174,8 @@ async function ListNewVenue(req, res) {
 // Edit Venue
 const editVenue = async (req, res) => {
     try {
-        const { id } = req.params;
-        const ownerId = await req.owner._id;
+        const { venueId } = await req.params;
+        const ownerId = await req.user._id;
 
         // Extract form data
         let {
@@ -198,10 +199,12 @@ const editVenue = async (req, res) => {
             events,
             amenities,
             rules,
-            cancellationPolicy
+            cancellationPolicy,
+            existingImages,
+            removedImages
         } = req.body;
 
-        // Parse JSON strings if they exist
+        // Parse JSON strings
         try {
             if (typeof otherFacilities === 'string') otherFacilities = JSON.parse(otherFacilities);
             if (typeof restrictions === 'string') restrictions = JSON.parse(restrictions);
@@ -212,6 +215,8 @@ const editVenue = async (req, res) => {
             if (typeof food === 'string') food = JSON.parse(food);
             if (typeof decoration === 'string') decoration = JSON.parse(decoration);
             if (typeof parking === 'string') parking = JSON.parse(parking);
+            if (typeof existingImages === 'string') existingImages = JSON.parse(existingImages);
+            if (typeof removedImages === 'string') removedImages = JSON.parse(removedImages);
         } catch (parseError) {
             console.error("Error parsing JSON data:", parseError);
             return res.status(400).json({
@@ -220,9 +225,7 @@ const editVenue = async (req, res) => {
             });
         }
 
-        const photos = req.files?.photos || req.files?.images || [];
-
-        const venue = await VenueModel.findOne({ _id: id, ownerId });
+        const venue = await VenueModel.findOne({ _id: venueId, ownerId });
 
         if (!venue) {
             return res.status(404).json({
@@ -231,10 +234,19 @@ const editVenue = async (req, res) => {
             });
         }
 
-        if (photos && photos.length > 0) {
-            const uploadedPhotos = await handleMultipleUpload(photos);
-            if (uploadedPhotos && uploadedPhotos.length > 0) {
-                venue.photos = uploadedPhotos;
+        // Handle image updates
+        let updatedPhotos = [];
+
+        // Keep existing images that weren't removed
+        if (existingImages && Array.isArray(existingImages)) {
+            updatedPhotos = [...existingImages];
+        }
+
+        // Add newly uploaded images
+        if (req.files?.images && req.files.images.length > 0) {
+            const newImageUrls = await uploadToCloudinary(req.files.images);
+            if (newImageUrls && newImageUrls.length > 0) {
+                updatedPhotos = [...updatedPhotos, ...newImageUrls];
             }
         }
 
@@ -260,8 +272,14 @@ const editVenue = async (req, res) => {
         venue.amenities = amenities || venue.amenities;
         venue.rules = rules !== undefined ? rules : venue.rules;
         venue.cancellationPolicy = cancellationPolicy !== undefined ? cancellationPolicy : venue.cancellationPolicy;
+        venue.photos = updatedPhotos;
 
         await venue.save();
+
+        // Clean up temp files
+        if (req.files) {
+            await req.cleanupFiles();
+        }
 
         return res.status(200).json({
             success: true,
@@ -270,6 +288,9 @@ const editVenue = async (req, res) => {
         });
     } catch (error) {
         console.error("Venue update error:", error);
+        if (req.files) {
+            await cleanupTempFiles(req.files);
+        }
         return res.status(500).json({
             success: false,
             message: "Server error!",
@@ -281,10 +302,11 @@ const editVenue = async (req, res) => {
 // Delete Venue
 const deleteVenue = async (req, res) => {
     try {
-        const { id } = req.params;
-        const ownerId = req.owner._id;
+        const { venueId } = req.params;
+        const ownerId = req.user._id;
 
-        const venue = await VenueModel.findOne({ _id: id, ownerId });
+        // First check if venue exists and belongs to owner
+        const venue = await VenueModel.findOne({ _id: venueId, ownerId });
 
         if (!venue) {
             return res.status(404).json({
@@ -293,7 +315,22 @@ const deleteVenue = async (req, res) => {
             });
         }
 
-        await VenueModel.deleteOne({ _id: id });
+        // Check for any existing bookings
+        const existingBookings = await BookingModel.find({
+            venueId: venueId,
+            date: { $gte: new Date() } // Only check future bookings
+        });
+
+        if (existingBookings.length > 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Cannot delete venue with upcoming bookings!",
+                bookings: existingBookings
+            });
+        }
+
+        // If no bookings exist, proceed with deletion
+        await VenueModel.deleteOne({ _id: venueId });
 
         return res.status(200).json({
             success: true,
@@ -312,11 +349,67 @@ const deleteVenue = async (req, res) => {
 // Get Single Venue
 const getVenue = async (req, res) => {
     try {
-        const { id } = req.params;
+        const { venueId } = req.params;
 
-        const venue = await VenueModel.findById(id);
+        // First check if MongoDB is connected
+        if (mongoose.connection.readyState !== 1) {
+            await dbConnect(); // Reconnect if not connected
+        }
 
-        if (!venue) {
+        // Add timeout options to the aggregation
+        const options = {
+            maxTimeMS: 20000, // Set maximum execution time to 20 seconds
+            allowDiskUse: true // Allow using disk for large datasets
+        };
+
+        const venueWithOwner = await VenueModel.aggregate([
+            {
+                $match: { _id: new mongoose.Types.ObjectId(venueId) }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'ownerId',
+                    foreignField: '_id',
+                    as: 'owner'
+                }
+            },
+            {
+                $unwind: '$owner'
+            },
+            {
+                $project: {
+                    _id: 1,
+                    name: 1,
+                    type: 1,
+                    bookingPay: 1,
+                    address: 1,
+                    city: 1,
+                    description: 1,
+                    locationURL: 1,
+                    rooms: 1,
+                    halls: 1,
+                    cancellation: 1,
+                    otherFacilities: 1,
+                    restrictions: 1,
+                    photos: 1,
+                    events: 1,
+                    withoutFoodRent: 1,
+                    withFoodRent: 1,
+                    food: 1,
+                    decoration: 1,
+                    parking: 1,
+                    amenities: 1,
+                    rules: 1,
+                    cancellationPolicy: 1,
+                    'owner.name': '$owner.fullname',
+                    'owner.email': '$owner.email',
+                    'owner.phone': '$owner.mobile'
+                }
+            }
+        ]).option(options);
+
+        if (!venueWithOwner.length) {
             return res.status(404).json({
                 success: false,
                 message: "Venue not found!"
@@ -325,9 +418,20 @@ const getVenue = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            venue
+            venue: venueWithOwner[0]
         });
     } catch (error) {
+        console.error('Venue fetch error:', error);
+        
+        // Handle specific timeout error
+        if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+            return res.status(503).json({
+                success: false,
+                message: "Database operation timed out. Please try again.",
+                error: 'OPERATION_TIMEOUT'
+            });
+        }
+
         return res.status(500).json({
             success: false,
             message: "Server error!",
@@ -359,7 +463,62 @@ const getOwnerVenues = async (req, res) => {
 // Get All Venues for users
 const getAllVenues = async (req, res) => {
     try {
-        const venues = await VenueModel.find({ status: 'approved' });
+        // Check connection state
+        if (mongoose.connection.readyState !== 1) {
+            await dbConnect();
+        }
+
+        const options = {
+            maxTimeMS: 20000,
+            allowDiskUse: true
+        };
+
+        const venues = await VenueModel.aggregate([
+            {
+                $match: { status: 'accepted' }
+            },
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'ownerId',
+                    foreignField: '_id',
+                    as: 'owner'
+                }
+            },
+            {
+                $unwind: '$owner'
+            },
+            {
+                $project: {
+                    _id: 1,
+                    name: 1,
+                    type: 1,
+                    address: 1,
+                    city: 1,
+                    description: 1,
+                    locationURL: 1,
+                    rooms: 1,
+                    halls: 1,
+                    bookingPay: 1,
+                    cancellation: 1,
+                    otherFacilities: 1,
+                    restrictions: 1,
+                    photos: 1,
+                    events: 1,
+                    withoutFoodRent: 1,
+                    withFoodRent: 1,
+                    food: 1,
+                    decoration: 1,
+                    parking: 1,
+                    amenities: 1,
+                    rules: 1,
+                    cancellationPolicy: 1,
+                    'owner.name': '$owner.fullname',
+                    'owner.email': '$owner.email',
+                    'owner.phone': '$owner.mobile'
+                }
+            }
+        ]).option(options);
 
         if (!venues || venues.length === 0) {
             return res.status(404).json({
@@ -374,6 +533,16 @@ const getAllVenues = async (req, res) => {
             venues
         });
     } catch (error) {
+        console.error('Venues fetch error:', error);
+
+        if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
+            return res.status(503).json({
+                success: false,
+                message: "Database operation timed out. Please try again.",
+                error: 'OPERATION_TIMEOUT'
+            });
+        }
+
         return res.status(500).json({
             success: false,
             message: "Server error!",

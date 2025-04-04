@@ -11,18 +11,20 @@ const InquirySchema = new Schema({
         required: true,
         ref: "Venue"
     },
-    rating: {
-        type: Number,
-        min:0,
-        max:5,
-        required: [true, "Please insert your rating"]
+    eventType: {
+        type: String,
+        required: true
+    },
+    date: {
+        type: Date,
+        required: true
     },
     message: {
         type: String,
-        required: [true, "Please insert your Message"]
-    }
+        required: true
+    },
 }, { timestamps: true })
 
-const InquiryMode = (mongoose.models.Inquiry) || mongoose.model("Inquiry", InquirySchema)
+const InquiryModel = (mongoose.models.Inquiry) || mongoose.model("Inquiry", InquirySchema)
 
-module.exports = { InquiryMode }
+module.exports = { InquiryModel }

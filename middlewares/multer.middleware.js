@@ -27,9 +27,10 @@ const storage = multer.diskStorage({
 // Improved file filter with better error handling
 const fileFilter = (req, file, cb) => {
     console.log(`Filtering file: ${file.originalname} (${file.mimetype})`);
-    
-    // Define allowed image types
+
+    // Define allowed file types
     const allowedTypes = {
+        'application/pdf': true,
         'image/jpeg': true,
         'image/jpg': true,
         'image/png': true,
@@ -38,12 +39,12 @@ const fileFilter = (req, file, cb) => {
 
     // Check file extension and mimetype
     const ext = path.extname(file.originalname).toLowerCase();
-    const isValidExtension = /\.(jpg|jpeg|png|gif)$/i.test(ext);
+    const isValidExtension = /\.(pdf|jpg|jpeg|png|gif)$/i.test(ext);
     const isValidMimeType = allowedTypes[file.mimetype];
 
     if (!isValidExtension || !isValidMimeType) {
         const error = new Error(
-            `Invalid file type. Only JPG, JPEG, PNG, and GIF images are allowed. Received: ${file.originalname} (${file.mimetype})`
+            `Invalid file type. Only PDF, JPG, JPEG, PNG, and GIF files are allowed. Received: ${file.originalname} (${file.mimetype})`
         );
         error.code = 'INVALID_FILE_TYPE';
         console.error(`Rejected file: ${file.originalname} - Invalid type: ${file.mimetype}`);
@@ -55,6 +56,15 @@ const fileFilter = (req, file, cb) => {
 };
 
 // Create multer instance with error handling
+const uploadPdf = multer({
+    storage: storage,
+    fileFilter: fileFilter,
+    limits: {
+        fileSize: 5 * 1024 * 1024, // 5MB max file size
+        files: 1 // Maximum number of files for owner registration
+    }
+}).single('aadharCard');
+
 const upload = multer({
     storage: storage,
     fileFilter: fileFilter,
@@ -72,8 +82,8 @@ const cleanupTempFiles = async (files) => {
 
     try {
         const cleanupPromises = [];
-        for (const fieldname of Object.keys(files)) {
-            for (const file of files[fieldname]) {
+        if (Array.isArray(files)) {
+            for (const file of files) {
                 if (fs.existsSync(file.path)) {
                     cleanupPromises.push(
                         unlinkFile(file.path)
@@ -81,6 +91,14 @@ const cleanupTempFiles = async (files) => {
                             .catch(err => console.error(`Error deleting file ${file.path}:`, err))
                     );
                 }
+            }
+        } else if (files.path) {
+            if (fs.existsSync(files.path)) {
+                cleanupPromises.push(
+                    unlinkFile(files.path)
+                        .then(() => console.log(`Cleaned up temporary file: ${files.path}`))
+                        .catch(err => console.error(`Error deleting file ${files.path}:`, err))
+                );
             }
         }
         await Promise.all(cleanupPromises);
@@ -92,17 +110,19 @@ const cleanupTempFiles = async (files) => {
 // Enhanced upload middleware with better error handling
 const uploadMiddleware = (req, res, next) => {
     console.log('Starting file upload process...');
-    
-    upload(req, res, async function(err) {
+
+    upload(req, res, async function (err) {
         console.log('Upload callback triggered');
-        
+
         // Handle file upload errors
         if (err) {
             console.error('File upload error:', err.code || 'UNKNOWN_ERROR');
-            
+
             // Clean up any partially uploaded files
             if (req.files) {
                 await cleanupTempFiles(req.files);
+            } else if (req.file) {
+                await cleanupTempFiles(req.file);
             }
 
             // Handle specific error types
@@ -125,7 +145,7 @@ const uploadMiddleware = (req, res, next) => {
                         });
                 }
             }
-            
+
             // Handle invalid file type errors
             if (err.code === 'INVALID_FILE_TYPE') {
                 return res.status(400).json({
@@ -134,7 +154,7 @@ const uploadMiddleware = (req, res, next) => {
                     code: 'INVALID_FILE_TYPE'
                 });
             }
-            
+
             // Handle any other errors
             return res.status(500).json({
                 success: false,
@@ -144,7 +164,7 @@ const uploadMiddleware = (req, res, next) => {
         }
 
         // If no files were uploaded when expected
-        if (!req.files || Object.keys(req.files).length === 0) {
+        if (!req.files && !req.file) {
             console.log('No files were uploaded');
             return res.status(400).json({
                 success: false,
@@ -153,15 +173,19 @@ const uploadMiddleware = (req, res, next) => {
         }
 
         // Log successful upload
-        console.log('Files uploaded successfully:', 
-            Object.keys(req.files).map(field => 
-                `${field}: ${req.files[field].length} files`
-            )
-        );
+        if (req.files) {
+            console.log('Files uploaded successfully:', req.files?.images?.map(f => f.filename));
+        } else if (req.file) {
+            console.log('File uploaded successfully:', req.file?.filename);
+        }
 
         // Attach cleanup function to request object
         req.cleanupFiles = async () => {
-            await cleanupTempFiles(req.files);
+            if (req.files) {
+                await cleanupTempFiles(req.files);
+            } else if (req.file) {
+                await cleanupTempFiles(req.file);
+            }
         };
 
         next();
@@ -170,5 +194,6 @@ const uploadMiddleware = (req, res, next) => {
 
 module.exports = {
     upload: uploadMiddleware,
-    cleanupTempFiles
+    cleanupTempFiles,
+    uploadPdf
 };

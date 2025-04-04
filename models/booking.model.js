@@ -1,4 +1,4 @@
-const { Schema } = require("mongoose");
+const { Schema, default: mongoose } = require("mongoose");
 
 const BookingSchema = new Schema({
     venueId: {
@@ -21,17 +21,14 @@ const BookingSchema = new Schema({
         required: true,
         enum:[0,1,2]
     },
-    price: {
-        type: Number,
-        required: true
-    },
     numberOfGuest:{
         type:Number,
         required:true
     },
-    foodType:{
-        type:Number,
-        requied:true
+    confirmed: {
+        type: Boolean,
+        default: false,
+        required: true
     }
 
 
