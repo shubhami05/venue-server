@@ -3,6 +3,7 @@ const { UserModel } = require("../models/user.model");
 const { uploadToCloudinary } = require("../config/cloudinary.config");
 const { OwnerApplicationModel } = require("../models/ownerForm.model");
 const { InquiryModel } = require("../models/inquiry.model");
+const { ContactModel } = require("../models/contact.model");
 
 async function RegisterOwner(req, res) {
     try {
@@ -146,4 +147,72 @@ async function sendInquiry(req, res) {
     }
 }
 
-module.exports = { RegisterOwner, sendInquiry };
+async function submitContactForm(req, res) {
+    try {
+        // Get user if authenticated (optional)
+        let userId = null;
+        if (req.user) {
+            userId = req.user._id;
+        }
+
+        await dbConnect();
+
+        // Extract contact details from request body
+        const { fullname, email, mobile, message } = req.body;
+
+        // Validate required fields
+        if (!fullname) {
+            return res.status(400).json({
+                success: false,
+                message: 'Full name is required'
+            });
+        }
+
+        if (!email) {
+            return res.status(400).json({
+                success: false,
+                message: 'Email is required'
+            });
+        }
+
+        if (!mobile) {
+            return res.status(400).json({
+                success: false,
+                message: 'Mobile number is required'
+            });
+        }
+
+        if (!message) {
+            return res.status(400).json({
+                success: false,
+                message: 'Message is required'
+            });
+        }
+
+        // Create new contact entry
+        const newContact = new ContactModel({
+            userId: userId, // Could be null for non-authenticated users
+            fullname,
+            email,
+            mobile,
+            message
+        });
+
+        // Save the contact submission
+        await newContact.save();
+
+        return res.status(200).json({
+            success: true,
+            message: 'Thank you for contacting us. We will get back to you shortly!'
+        });
+    } catch (error) {
+        console.error('Contact form submission error:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to submit contact form',
+            error: error.message
+        });
+    }
+}
+
+module.exports = { RegisterOwner, sendInquiry, submitContactForm };

@@ -20,6 +20,16 @@ const ReviewSchema = new Schema({
     message: {
         type: String,
         required: [true, "Please insert your Message"]
+    },
+    ownerReply: {
+        message: {
+            type: String,
+            default: null
+        },
+        createdAt: {
+            type: Date,
+            default: null
+        }
     }
 }, { timestamps: true })
 

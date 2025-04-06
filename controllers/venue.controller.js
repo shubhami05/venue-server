@@ -402,6 +402,8 @@ const getVenue = async (req, res) => {
                     amenities: 1,
                     rules: 1,
                     cancellationPolicy: 1,
+                    rating: 1,
+                    reviewCount: 1,
                     'owner.name': '$owner.fullname',
                     'owner.email': '$owner.email',
                     'owner.phone': '$owner.mobile'
@@ -513,6 +515,8 @@ const getAllVenues = async (req, res) => {
                     amenities: 1,
                     rules: 1,
                     cancellationPolicy: 1,
+                    rating: 1,
+                    reviewCount: 1,
                     'owner.name': '$owner.fullname',
                     'owner.email': '$owner.email',
                     'owner.phone': '$owner.mobile'

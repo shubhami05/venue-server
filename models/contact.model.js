@@ -4,7 +4,7 @@ const ContactSchema = new Schema({
     userId: {
         type: Schema.Types.ObjectId,
         ref: "User",
-        require:true
+        required: false
     },
     fullname: {
         type: String,

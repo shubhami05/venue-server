@@ -144,6 +144,14 @@ const VenueSchema = new Schema({
     cancellationPolicy: {
         type: String,
         default: ''
+    },
+    rating: {
+        type: Number,
+        default: 0
+    },
+    reviewCount: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true })
 

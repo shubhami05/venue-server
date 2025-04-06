@@ -3,6 +3,9 @@ const { VenueModel } = require("../models/venue.model");
 const { dbConnect } = require("../config/db.config");
 const { OwnerApplicationModel } = require("../models/ownerForm.model");
 const { sendEmail } = require("../utils/email");
+const { InquiryModel } = require("../models/inquiry.model");
+const { BookingModel } = require("../models/booking.model");
+const { ContactModel } = require("../models/contact.model");
 
 // Fetch all users
 const getAllUsers = async (req, res) => {
@@ -425,6 +428,294 @@ const changeOwnerStatus = async (req, res) => {
     }
 };
 
+// Fetch all inquiries
+const getAllInquiries = async (req, res) => {
+    try {
+        await dbConnect();
+        
+        // Get all inquiries with user and venue details
+        const inquiries = await InquiryModel.find()
+            .populate('userId', 'fullname email mobile')
+            .populate('venueId', 'name city address')
+            .sort({ createdAt: -1 });
+
+        // Format the response
+        const formattedInquiries = inquiries.map(inquiry => ({
+            _id: inquiry._id,
+            eventType: inquiry.eventType,
+            date: inquiry.date,
+            message: inquiry.message,
+            createdAt: inquiry.createdAt,
+            user: {
+                name: inquiry.userId.fullname,
+                email: inquiry.userId.email,
+                phone: inquiry.userId.mobile || 'N/A'
+            },
+            venue: {
+                name: inquiry.venueId.name,
+                city: inquiry.venueId.city,
+                address: inquiry.venueId.address
+            }
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Inquiries fetched successfully",
+            inquiries: formattedInquiries
+        });
+    } catch (error) {
+        console.error("Error fetching inquiries:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch inquiries",
+            error: error.message
+        });
+    }
+};
+
+// Dashboard statistics
+const getDashboardStats = async (req, res) => {
+    try {
+        await dbConnect();
+
+        // Fetch counts
+        const totalUsers = await UserModel.countDocuments();
+        const totalOwners = await UserModel.countDocuments({ role: 'owner' });
+        const totalVenues = await VenueModel.countDocuments();
+        const totalBookings = await BookingModel.countDocuments();
+        
+        // Venue status distribution
+        const activeVenues = await VenueModel.countDocuments({ status: 'accepted' });
+        const pendingVenues = await VenueModel.countDocuments({ status: 'pending' });
+        const blockedVenues = await VenueModel.countDocuments({ status: 'rejected' });
+        
+        // Fetch recent bookings
+        const recentBookings = await BookingModel.find()
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate('userId', 'fullname')
+            .populate('venueId', 'name');
+        
+        // Format recent bookings
+        const formattedRecentBookings = recentBookings.map(booking => ({
+            _id: booking._id,
+            venueName: booking.venueId.name,
+            userName: booking.userId.fullname,
+            date: booking.eventDate,
+            amount: booking.totalAmount
+        }));
+        
+        // Calculate total revenue
+        const allBookings = await BookingModel.find();
+        const totalRevenue = allBookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+        
+        // Generate revenue trend (last 6 months)
+        const revenueTrend = await generateRevenueTrend();
+
+        return res.status(200).json({
+            success: true,
+            totalUsers,
+            totalOwners,
+            totalVenues,
+            totalBookings,
+            totalRevenue,
+            activeVenues,
+            pendingVenues,
+            blockedVenues,
+            recentBookings: formattedRecentBookings,
+            revenueTrend
+        });
+    } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch dashboard statistics",
+            error: error.message
+        });
+    }
+};
+
+// Helper function to generate revenue trend for the last 6 months
+const generateRevenueTrend = async () => {
+    const now = new Date();
+    const months = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Generate last 6 months
+    for (let i = 5; i >= 0; i--) {
+        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+            month: monthNames[month.getMonth()],
+            year: month.getFullYear(),
+            startDate: new Date(month.getFullYear(), month.getMonth(), 1),
+            endDate: new Date(month.getFullYear(), month.getMonth() + 1, 0)
+        });
+    }
+    
+    // Calculate revenue for each month
+    const revenueTrend = [];
+    
+    for (const monthData of months) {
+        const bookings = await BookingModel.find({
+            createdAt: {
+                $gte: monthData.startDate,
+                $lte: monthData.endDate
+            }
+        });
+        
+        const amount = bookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+        
+        revenueTrend.push({
+            month: monthData.month,
+            amount
+        });
+    }
+    
+    return revenueTrend;
+};
+
+// Fetch all contacts
+const getAllContacts = async (req, res) => {
+    try {
+        await dbConnect();
+        
+        // Get all contacts with user details
+        const contacts = await ContactModel.find()
+            .populate('userId', 'fullname email mobile')
+            .sort({ createdAt: -1 });
+
+        // Format the response
+        const formattedContacts = contacts.map(contact => ({
+            _id: contact._id,
+            fullname: contact.fullname,
+            email: contact.email,
+            mobile: contact.mobile,
+            message: contact.message,
+            createdAt: contact.createdAt,
+            user: contact.userId ? {
+                id: contact.userId._id,
+                name: contact.userId.fullname,
+                email: contact.userId.email,
+                phone: contact.userId.mobile || 'N/A'
+            } : null
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Contacts fetched successfully",
+            contacts: formattedContacts
+        });
+    } catch (error) {
+        console.error("Error fetching contacts:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch contacts",
+            error: error.message
+        });
+    }
+};
+
+// Reply to a contact
+const replyToContact = async (req, res) => {
+    try {
+        const { contactId } = req.params;
+        const { subject, message } = req.body;
+        
+        if (!contactId) {
+            return res.status(400).json({
+                success: false,
+                message: "Contact ID is required"
+            });
+        }
+        
+        if (!subject || !message) {
+            return res.status(400).json({
+                success: false,
+                message: "Subject and message are required"
+            });
+        }
+        
+        await dbConnect();
+        
+        // Find the contact
+        const contact = await ContactModel.findById(contactId);
+        
+        if (!contact) {
+            return res.status(404).json({
+                success: false,
+                message: "Contact not found"
+            });
+        }
+        
+        // Format the email body
+        const emailBody = `Dear ${contact.fullname},
+
+Thank you for contacting us. Here's our response to your inquiry:
+
+${message}
+
+If you have any further questions, please don't hesitate to contact us again.
+
+Best regards,
+VenueServ Team`;
+
+        // Return email data for client to open mail app
+        return res.status(200).json({
+            success: true,
+            message: "Reply data prepared",
+            emailData: {
+                to: contact.email,
+                subject: subject,
+                body: emailBody
+            }
+        });
+    } catch (error) {
+        console.error("Error preparing reply:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to prepare reply",
+            error: error.message
+        });
+    }
+};
+
+// Delete a contact
+const deleteContact = async (req, res) => {
+    try {
+        const { contactId } = req.params;
+        
+        if (!contactId) {
+            return res.status(400).json({
+                success: false,
+                message: "Contact ID is required"
+            });
+        }
+        
+        await dbConnect();
+        
+        // Find and delete the contact
+        const contact = await ContactModel.findByIdAndDelete(contactId);
+        
+        if (!contact) {
+            return res.status(404).json({
+                success: false,
+                message: "Contact not found"
+            });
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: "Contact deleted successfully"
+        });
+    } catch (error) {
+        console.error("Error deleting contact:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to delete contact",
+            error: error.message
+        });
+    }
+};
 
 module.exports = {
     getAllUsers,
@@ -432,7 +723,10 @@ module.exports = {
     getPendingVenues,
     changeVenueStatus,
     getPendingOwnerApplications,
-    changeOwnerStatus
-    // toggleUserStatus,
-    // toggleOwnerStatus
+    changeOwnerStatus,
+    getAllInquiries,
+    getDashboardStats,
+    getAllContacts,
+    replyToContact,
+    deleteContact
 }; 

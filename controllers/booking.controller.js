@@ -43,6 +43,7 @@ const checkAvailability = async (req, res) => {
         const bookingDate = new Date(date);
         bookingDate.setHours(0, 0, 0, 0);
 
+        console.log(bookingDate);
         // Find any bookings for the same venue and date
         const existingBookings = await BookingModel.find({
             venueId,
@@ -50,29 +51,39 @@ const checkAvailability = async (req, res) => {
         });
 
         let isAvailable = true;
-        
         if (existingBookings.length > 0) {
-            // Check availability based on timeslot rules
             for (const booking of existingBookings) {
-                // If there's a full day booking, venue is not available
-                if (booking.timeslot === 2) {
-                    isAvailable = false;
-                    break;
-                }
-                
-                // If requesting full day and there's any booking, venue is not available
-                if (timeslot === 2) {
-                    isAvailable = false;
-                    break;
-                }
-                
-                // If requesting morning/evening and that slot is already booked
-                if (timeslot === booking.timeslot) {
+                if (booking.timeslot === 2 || // Full day booking exists
+                    timeslot === 2 || // Requesting full day
+                    timeslot === booking.timeslot) { // Same timeslot
                     isAvailable = false;
                     break;
                 }
             }
         }
+        
+        // if (existingBookings.length > 0) {
+        //     // Check availability based on timeslot rules
+        //     for (const booking of existingBookings) {
+        //         // If there's a full day booking, venue is not available
+        //         if (booking.timeslot === 2) {
+        //             isAvailable = false;
+        //             break;
+        //         }
+                
+        //         // If requesting full day and there's any booking, venue is not available
+        //         if (timeslot === 2) {
+        //             isAvailable = false;
+        //             break;
+        //         }
+                
+        //         // If requesting morning/evening and that slot is already booked
+        //         if (timeslot === booking.timeslot) {
+        //             isAvailable = false;
+        //             break;
+        //         }
+        //     }
+        // }
 
         return res.status(200).json({
             success: true,
@@ -150,6 +161,7 @@ const BookVenue = async (req, res) => {
 const checkAvailabilityHelper = async (venueId, date, timeslot) => {
     const bookingDate = new Date(date);
     bookingDate.setHours(0, 0, 0, 0);
+    
 
     const existingBookings = await BookingModel.find({
         venueId,
@@ -208,7 +220,7 @@ const getAllBookings = async (req, res) => {
             confirmed: booking.confirmed,
             createdAt: booking.createdAt
         }));
-        console.log(formattedBookings);
+
         return res.status(200).json({
             success: true,
             message: 'Bookings fetched successfully',
@@ -232,7 +244,7 @@ const getUserBookings = async (req, res) => {
         
         // Retrieve all bookings for the user with populated venue details
         const bookings = await BookingModel.find({ userId })
-            .populate('venueId', 'name city address type')
+            .populate('venueId', 'name city address type cancellation cancellationPolicy')
             .sort({ createdAt: -1 }); // Sort by newest first
         
         // Transform the response to make it easier to use in the frontend
@@ -244,7 +256,8 @@ const getUserBookings = async (req, res) => {
                 city: booking.venueId.city,
                 address: booking.venueId.address,
                 type: booking.venueId.type,
-               
+                cancellation: booking.venueId.cancellation,
+                cancellationPolicy: booking.venueId.cancellationPolicy || '',    
             },
             date: booking.date,
             timeslot: booking.timeslot,
