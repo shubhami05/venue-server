@@ -88,7 +88,9 @@ async function getDashboardAnalytics(req, res) {
             const sumRatings = reviews.reduce((sum, review) => sum + review.rating, 0);
             averageRating = (sumRatings / totalReviews).toFixed(1);
         }
-        
+        const pendingVenues = venues.filter(venue => venue.status === 'pending').length;
+        const acceptedVenues = venues.filter(venue => venue.status === 'accepted').length;
+        const rejectedVenues = venues.filter(venue => venue.status === 'rejected').length;
         // Get pending reviews (not replied to yet)
         const pendingReviews = reviews.filter(review => !review.ownerReply || !review.ownerReply.message).length;
         
@@ -127,6 +129,42 @@ async function getDashboardAnalytics(req, res) {
         // Reverse to get chronological order
         monthlyBookings.reverse();
         
+        // Calculate rating distribution (1-5 stars)
+        const ratingDistribution = {
+            1: 0,
+            2: 0,
+            3: 0,
+            4: 0,
+            5: 0
+        };
+        
+        reviews.forEach(review => {
+            if (review.rating >= 1 && review.rating <= 5) {
+                ratingDistribution[review.rating]++;
+            }
+        });
+        
+        // Calculate venue ratings
+        const venueRatings = [];
+        
+        for (const venue of venues) {
+            const venueReviews = reviews.filter(review => 
+                review.venueId.toString() === venue._id.toString()
+            );
+            
+            let venueRating = 0;
+            if (venueReviews.length > 0) {
+                const sumRatings = venueReviews.reduce((sum, review) => sum + review.rating, 0);
+                venueRating = sumRatings / venueReviews.length;
+            }
+            
+            venueRatings.push({
+                id: venue._id,
+                name: venue.name,
+                rating: venueRating
+            });
+        }
+        
         return res.status(200).json({
             success: true,
             data: {
@@ -139,7 +177,12 @@ async function getDashboardAnalytics(req, res) {
                 pendingReviews,
                 pendingBookings,
                 confirmedBookings,
-                monthlyBookings
+                monthlyBookings,
+                pendingVenues,
+                acceptedVenues,
+                rejectedVenues,
+                ratingDistribution,
+                venueRatings
             }
         });
     } catch (error) {
