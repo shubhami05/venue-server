@@ -66,9 +66,22 @@ async function getDashboardAnalytics(req, res) {
         const bookings = await BookingModel.find({ venueId: { $in: venueIds } });
         const totalBookings = bookings.length;
         
+        // Calculate total rebookings (bookings by the same user for the same venue)
+        const rebookings = bookings.filter(booking => {
+            // Find if this user has booked this venue before
+            const previousBookings = bookings.filter(b => 
+                b.userId.toString() === booking.userId.toString() && 
+                b.venueId.toString() === booking.venueId.toString() &&
+                b._id.toString() !== booking._id.toString() &&
+                new Date(b.createdAt) < new Date(booking.createdAt)
+            );
+            return previousBookings.length > 0;
+        });
+        const totalRebookings = rebookings.length;
+        
         // Get bookings revenue
         const totalRevenue = bookings.reduce((total, booking) => {
-            if (booking.status === 'confirmed') {
+            if (booking.paymentStatus === 'completed') {
                 return total + booking.amount;
             }
             return total;
@@ -95,10 +108,10 @@ async function getDashboardAnalytics(req, res) {
         const pendingReviews = reviews.filter(review => !review.ownerReply || !review.ownerReply.message).length;
         
         // Get pending bookings
-        const pendingBookings = bookings.filter(booking => booking.status === 'pending').length;
+        const pendingBookings = bookings.filter(booking => booking.paymentStatus === 'pending').length;
         
         // Get confirmed bookings
-        const confirmedBookings = bookings.filter(booking => booking.status === 'confirmed').length;
+        const confirmedBookings = bookings.filter(booking => booking.paymentStatus === 'completed').length;
         
         // Monthly bookings statistics (last 6 months)
         const today = new Date();
@@ -170,6 +183,7 @@ async function getDashboardAnalytics(req, res) {
             data: {
                 totalVenues,
                 totalBookings,
+                totalRebookings,
                 totalRevenue,
                 totalInquiries,
                 totalReviews,
