@@ -6,11 +6,16 @@ const { authRouter } = require("./routes/auth.routes");
 const { userRouter } = require("./routes/user.routes");
 const { ownerRouter } = require("./routes/owner.routes");
 const { adminRouter } = require("./routes/admin.routes");
+const stripeRouter = require("./routes/stripe.routes");
 require('dotenv').config()
 
 const app = express();
 const PORT = process.env.PORT || 8000;
 
+// Special handling for Stripe webhooks - must be raw body
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
+
+// Regular middleware for all other routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
@@ -60,6 +65,7 @@ app.use("/api/auth",authRouter);
 app.use("/api/user",userRouter);
 app.use("/api/owner",ownerRouter);
 app.use("/api/admin",adminRouter);
+app.use("/api/stripe", stripeRouter);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

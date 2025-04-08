@@ -29,9 +29,19 @@ const BookingSchema = new Schema({
         type: Boolean,
         default: false,
         required: true
+    },
+    paymentStatus: {
+        type: String,
+        enum: ['pending', 'completed', 'failed'],
+        default: 'pending'
+    },
+    stripePaymentId: {
+        type: String
+    },
+    amount: {
+        type: Number,
+        required: true
     }
-
-
 }, { timestamps: true })
 
 const BookingModel = (mongoose.models.Booking) || mongoose.model("Booking", BookingSchema)

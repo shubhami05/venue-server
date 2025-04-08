@@ -3,9 +3,10 @@ const { dbConnect } = require("../config/db.config");
 const { VenueModel } = require("../models/venue.model");
 const { cleanupTempFiles } = require('../middlewares/multer.middleware');
 const { default: mongoose } = require("mongoose");
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 async function ListNewVenue(req, res) {
-    const user = await req.user; // Assuming req.user is the object being accessed
+    const user = await req.user;
     if (!user || !user._id) {
         return res.status(400).json({
             success: false,
@@ -15,6 +16,15 @@ async function ListNewVenue(req, res) {
 
     try {
         const ownerId = user._id;
+
+        // Check if user has a connected Stripe account
+        const stripeAccount = await stripe.accounts.retrieve(user.stripeAccountId);
+        if (!stripeAccount) {
+            return res.status(400).json({
+                success: false,
+                message: "You need to connect your Stripe account before adding venues"
+            });
+        }
 
         // Extract form data
         let {
@@ -72,13 +82,6 @@ async function ListNewVenue(req, res) {
             });
         }
 
-        // Validate food details
-        // if (!food) {
-        //     return res.status(400).json({
-        //         success: false,
-        //         message: "Some food details are missing, please fill it or contact support!"
-        //     });
-        // }
 
         // Validate rent details
         if (food.providedByVenue && (!withFoodRent.morning || !withFoodRent.evening || !withFoodRent.fullday)) {

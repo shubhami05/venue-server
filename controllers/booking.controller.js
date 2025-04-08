@@ -1,6 +1,7 @@
 const { dbConnect } = require("../config/db.config");
 const { BookingModel } = require("../models/booking.model");
 const { VenueModel } = require("../models/venue.model");
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Function to check booking availability
 const checkAvailability = async (req, res) => {
@@ -62,28 +63,6 @@ const checkAvailability = async (req, res) => {
             }
         }
         
-        // if (existingBookings.length > 0) {
-        //     // Check availability based on timeslot rules
-        //     for (const booking of existingBookings) {
-        //         // If there's a full day booking, venue is not available
-        //         if (booking.timeslot === 2) {
-        //             isAvailable = false;
-        //             break;
-        //         }
-                
-        //         // If requesting full day and there's any booking, venue is not available
-        //         if (timeslot === 2) {
-        //             isAvailable = false;
-        //             break;
-        //         }
-                
-        //         // If requesting morning/evening and that slot is already booked
-        //         if (timeslot === booking.timeslot) {
-        //             isAvailable = false;
-        //             break;
-        //         }
-        //     }
-        // }
 
         return res.status(200).json({
             success: true,
@@ -130,21 +109,49 @@ const BookVenue = async (req, res) => {
             });
         }
 
-        // Create new booking
-        const newBooking = new BookingModel({
-            venueId,
-            userId: user._id, // Assuming you have user info in request
-            date: new Date(date),
-            timeslot,
-            numberOfGuest
-        });
+        // Get venue details to calculate amount
+        const venue = await VenueModel.findById(venueId);
+        if (!venue) {
+            return res.status(404).json({
+                success: false,
+                message: "Venue not found"
+            });
+        }
 
-        await newBooking.save();
+        // Calculate amount based on timeslot
+        let amount;
+        if (timeslot === 0) { // Morning
+            amount = venue.withoutFoodRent.morning;
+        } else if (timeslot === 1) { // Evening
+            amount = venue.withoutFoodRent.evening;
+        } else { // Full day
+            amount = venue.withoutFoodRent.fullday;
+        }
+
+        // Create Stripe Payment Intent with all booking details in metadata
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: amount * 100, // Convert to cents
+            currency: 'inr',
+            metadata: {
+                venueId: venueId.toString(),
+                userId: user._id.toString(),
+                date: date,
+                timeslot: timeslot.toString(),
+                numberOfGuest: numberOfGuest.toString(),
+                amount: amount.toString()
+            },
+            automatic_payment_methods: {
+                enabled: true,
+            }
+        });
+        
+       
 
         return res.status(201).json({
             success: true,
-            message: "Booking created successfully",
-            booking: newBooking
+            message: "Payment intent created successfully",
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id
         });
 
     } catch (error) {
@@ -159,32 +166,39 @@ const BookVenue = async (req, res) => {
 
 // Helper function for internal availability checks
 const checkAvailabilityHelper = async (venueId, date, timeslot) => {
-    const bookingDate = new Date(date);
-    bookingDate.setHours(0, 0, 0, 0);
-    
+    try {
+        await dbConnect();
+        
+        const bookingDate = new Date(date);
+        bookingDate.setHours(0, 0, 0, 0);
+        
 
-    const existingBookings = await BookingModel.find({
-        venueId,
-        date: bookingDate
-    });
+        const existingBookings = await BookingModel.find({
+            venueId,
+            date: bookingDate
+        });
 
-    let isAvailable = true;
-    
-    if (existingBookings.length > 0) {
-        for (const booking of existingBookings) {
-            if (booking.timeslot === 2 || // Full day booking exists
-                timeslot === 2 || // Requesting full day
-                timeslot === booking.timeslot) { // Same timeslot
-                isAvailable = false;
-                break;
+        let isAvailable = true;
+        
+        if (existingBookings.length > 0) {
+            for (const booking of existingBookings) {
+                if (booking.timeslot === 2 || // Full day booking exists
+                    timeslot === 2 || // Requesting full day
+                    timeslot === booking.timeslot) { // Same timeslot
+                    isAvailable = false;
+                    break;
+                }
             }
         }
-    }
 
-    return {
-        isAvailable,
-        existingBookings
-    };
+        return {
+            isAvailable,
+            existingBookings
+        };
+    } catch (error) {
+        console.error("Error in checkAvailabilityHelper:", error);
+        throw error;
+    }
 };
 
 // Fetch all bookings for admin
@@ -214,6 +228,8 @@ const getAllBookings = async (req, res) => {
                 email: booking.userId.email,
                 phone: booking.userId.mobile
             },
+            amount: booking.amount,
+            paymentStatus: booking.paymentStatus,
             date: booking.date,
             timeslot: booking.timeslot,
             numberOfGuest: booking.numberOfGuest,
@@ -313,6 +329,7 @@ const getOwnerVenuesBookings = async (req, res) => {
                 email: booking.userId.email,
                 phone: booking.userId.mobile
             },
+            amount: booking.amount,
             date: booking.date,
             timeslot: booking.timeslot,
             numberOfGuest: booking.numberOfGuest,
@@ -483,6 +500,150 @@ const deleteBooking = async (req, res) => {
     }
 };
 
+// Update confirmPayment function to handle the actual booking confirmation
+const confirmPayment = async (req, res) => {
+    try {
+        await dbConnect();
+        
+        const { paymentIntentId } = req.body;
+
+        // Verify payment intent
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        
+        if (paymentIntent.status === 'succeeded') {
+            // Extract booking details from payment intent metadata
+            const {
+                venueId,
+                userId,
+                date,
+                timeslot,
+                numberOfGuest,
+                amount
+            } = paymentIntent.metadata;
+
+            // Double check availability before creating booking
+            const availabilityCheck = await checkAvailabilityHelper(
+                venueId,
+                date,
+                parseInt(timeslot)
+            );
+
+            if (!availabilityCheck.isAvailable) {
+                // If venue is no longer available, refund the payment
+                await stripe.refunds.create({
+                    payment_intent: paymentIntentId
+                });
+
+                return res.status(400).json({
+                    success: false,
+                    message: "Venue is no longer available for the selected time slot. Payment has been refunded."
+                });
+            }
+
+            // Create new booking with confirmed status
+            const newBooking = new BookingModel({
+                venueId,
+                userId,
+                date: new Date(date),
+                timeslot: parseInt(timeslot),
+                numberOfGuest: parseInt(numberOfGuest),
+                amount: parseFloat(amount),
+                paymentStatus: 'completed',
+                stripePaymentId: paymentIntentId,
+                confirmed: true
+            });
+
+            await newBooking.save();
+
+            return res.status(200).json({
+                success: true,
+                message: "Payment confirmed and booking created successfully",
+                booking: newBooking
+            });
+        } else {
+            return res.status(400).json({
+                success: false,
+                message: "Payment failed"
+            });
+        }
+    } catch (error) {
+        console.error("Error in confirmPayment:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
+// Cancel a booking
+const cancelBooking = async (req, res) => {
+    try {
+        await dbConnect();
+        
+        const { bookingId } = req.params;
+        const userId = req.user._id;
+        
+        if (!bookingId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide booking ID'
+            });
+        }
+        
+        // Find the booking and verify ownership
+        const booking = await BookingModel.findOne({
+            _id: bookingId,
+            userId: userId
+        });
+        
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: 'Booking not found or you do not have permission to cancel this booking'
+            });
+        }
+
+        // Check if booking is already cancelled
+        if (booking.status === 'cancelled') {
+            return res.status(400).json({
+                success: false,
+                message: 'Booking is already cancelled'
+            });
+        }
+
+        // Check if booking date is in the past
+        const bookingDate = new Date(booking.date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (bookingDate < today) {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot cancel past bookings'
+            });
+        }
+        
+        // Update booking status to cancelled
+        booking.status = 'cancelled';
+        booking.cancelledAt = new Date();
+        await booking.save();
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Booking cancelled successfully',
+            booking
+        });
+    } catch (error) {
+        console.error('Error in cancelBooking:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
+};
+
 module.exports = { 
     BookVenue, 
     checkAvailability, 
@@ -491,5 +652,7 @@ module.exports = {
     confirmBooking, 
     deleteBooking,
     getUserBookings,
-    getOwnerVenuesBookings
+    getOwnerVenuesBookings,
+    confirmPayment,
+    cancelBooking
 };

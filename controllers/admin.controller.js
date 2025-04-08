@@ -6,6 +6,7 @@ const { sendEmail } = require("../utils/email");
 const { InquiryModel } = require("../models/inquiry.model");
 const { BookingModel } = require("../models/booking.model");
 const { ContactModel } = require("../models/contact.model");
+const { ReviewModel } = require("../models/review.model");
 
 // Fetch all users
 const getAllUsers = async (req, res) => {
@@ -489,28 +490,63 @@ const getDashboardStats = async (req, res) => {
         const pendingVenues = await VenueModel.countDocuments({ status: 'pending' });
         const blockedVenues = await VenueModel.countDocuments({ status: 'rejected' });
         
+        // Fetch pending owners count
+        const pendingOwners = await OwnerApplicationModel.countDocuments({ status: 'pending' });
+        
+        // Fetch total reviews count
+        const totalReviews = await ReviewModel.countDocuments();
+        
+        // Fetch total inquiries count
+        const totalInquiries = await InquiryModel.countDocuments();
+        
         // Fetch recent bookings
         const recentBookings = await BookingModel.find()
             .sort({ createdAt: -1 })
             .limit(5)
             .populate('userId', 'fullname')
             .populate('venueId', 'name');
-        
+
+        // Fetch recent reviews
+        const recentReviews = await ReviewModel.find()
+            .sort({ createdAt: -1 })
+            .limit(5)
+            .populate('userId', 'fullname')
+            .populate('venueId', 'name');
+
+        // Format recent reviews
+        const formattedRecentReviews = recentReviews.map(review => ({
+            _id: review._id,
+            venueName: review.venueId.name,
+            userName: review.userId.fullname,
+            rating: review.rating,
+            message: review.message,
+            createdAt: review.createdAt
+        }));
+
         // Format recent bookings
         const formattedRecentBookings = recentBookings.map(booking => ({
             _id: booking._id,
             venueName: booking.venueId.name,
             userName: booking.userId.fullname,
             date: booking.eventDate,
-            amount: booking.totalAmount
+            amount: booking.amount,
+            paymentStatus: booking.paymentStatus || 'pending'
         }));
         
-        // Calculate total revenue
-        const allBookings = await BookingModel.find();
-        const totalRevenue = allBookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+        // Calculate total revenue from completed bookings only
+        const completedBookings = await BookingModel.find({ paymentStatus: 'completed' });
+        const totalRevenue = completedBookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
         
         // Generate revenue trend (last 6 months)
         const revenueTrend = await generateRevenueTrend();
+        
+        // Calculate payment statistics
+        const paymentStats = {
+            totalPayments: await BookingModel.countDocuments({ paymentStatus: { $in: ['completed', 'pending', 'failed'] } }),
+            successfulPayments: await BookingModel.countDocuments({ paymentStatus: 'completed' }),
+            failedPayments: await BookingModel.countDocuments({ paymentStatus: 'failed' }),
+            averagePaymentAmount: totalBookings > 0 ? totalRevenue / totalBookings : 0
+        };
 
         return res.status(200).json({
             success: true,
@@ -522,8 +558,13 @@ const getDashboardStats = async (req, res) => {
             activeVenues,
             pendingVenues,
             blockedVenues,
+            pendingOwners,
+            totalReviews,
+            totalInquiries,
             recentBookings: formattedRecentBookings,
-            revenueTrend
+            recentReviews: formattedRecentReviews,
+            revenueTrend,
+            paymentStats
         });
     } catch (error) {
         console.error("Error fetching dashboard stats:", error);
@@ -552,18 +593,19 @@ const generateRevenueTrend = async () => {
         });
     }
     
-    // Calculate revenue for each month
+    // Calculate revenue for each month (only completed bookings)
     const revenueTrend = [];
     
     for (const monthData of months) {
         const bookings = await BookingModel.find({
+            paymentStatus: 'completed',
             createdAt: {
                 $gte: monthData.startDate,
                 $lte: monthData.endDate
             }
         });
         
-        const amount = bookings.reduce((sum, booking) => sum + (booking.totalAmount || 0), 0);
+        const amount = bookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
         
         revenueTrend.push({
             month: monthData.month,
