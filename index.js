@@ -22,28 +22,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Define allowed origins
-const allowedOrigins = [
-  'https://venueserv.vercel.app',
-  process.env.FRONTEND_URI,
-];
+// const allowedOrigins = [
+//   'https://venueserv.vercel.app',
+//   process.env.FRONTEND_URI,
+// ];
 
 // Configure CORS
-app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl requests)
-    if (!origin) return callback(null, true);
-
-    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
-      callback(null, true);
-    } else {
-      console.warn(`Origin ${origin} not allowed by CORS`);
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: '*'
-}));
+app.use(cors());
 
 app.use(cookieParser(process.env.COOKIE_SECRET));
 
