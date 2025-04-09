@@ -19,7 +19,7 @@ app.get('/', (req, res) => {
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 // Regular middleware for all other routes
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+// app.use(express.urlencoded({ extended: false }));
 
 // Define allowed origins
 // const allowedOrigins = [
