@@ -24,7 +24,6 @@ const getAllUsers = async (req, res) => {
             name: user.fullname,
             email: user.email,
             role: user.role,
-            status: user.status,
             phone: user.mobile || 'N/A',
             joinedDate: user.createdAt.toISOString().split('T')[0]
         }));

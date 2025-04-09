@@ -63,7 +63,7 @@ async function getDashboardAnalytics(req, res) {
         const totalVenues = venues.length;
         
         // Get bookings count
-        const bookings = await BookingModel.find({ venueId: { $in: venueIds } });
+        const bookings = await BookingModel.find({ venueId: { $in: venueIds }, isOwnerReservation: false });
         const totalBookings = bookings.length;
         
         // Calculate total rebookings (bookings by the same user for the same venue)

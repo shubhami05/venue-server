@@ -16,7 +16,7 @@ userRouter.post("/booking/confirm", VerifyCookie, confirmPayment); //confirm boo
 
 userRouter.post("/review/create", VerifyCookie, createReview); //send review
 userRouter.get("/review/fetch/venue/:venueId", getVenueReviews); //get venue reviews (public)
-userRouter.get("/review/fetch/user", VerifyCookie, getUserReviews); //get user's reviews
+userRouter.get("/review/fetch", VerifyCookie, getUserReviews); //get user's reviews
 userRouter.delete("/review/delete/:reviewId", VerifyCookie, deleteReview); //delete review only if it is from user
 
 userRouter.get("/venue/fetch", getAllVenues); //list available venues with status true

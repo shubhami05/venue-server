@@ -25,11 +25,6 @@ const BookingSchema = new Schema({
         type:Number,
         required:true
     },
-    confirmed: {
-        type: Boolean,
-        default: false,
-        required: true
-    },
     paymentStatus: {
         type: String,
         enum: ['pending', 'completed', 'failed'],
@@ -41,6 +36,18 @@ const BookingSchema = new Schema({
     amount: {
         type: Number,
         required: true
+    },
+    // New fields for owner reservations
+    isOwnerReservation: {
+        type: Boolean,
+        default: false
+    },
+    eventType: {
+        type: String
+    },
+    isCancelled: {
+        type: Boolean,
+        default: false
     }
 }, { timestamps: true })
 
