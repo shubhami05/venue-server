@@ -12,11 +12,11 @@ require('dotenv').config()
 const app = express();
 const PORT = process.env.PORT || 8000;
 
-// Special handling for Stripe webhooks - must be raw body
-app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 app.get('/', (req, res) => {
   res.json({ message: 'Backend is working!' });
 });
+// Special handling for Stripe webhooks - must be raw body
+app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
 // Regular middleware for all other routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
