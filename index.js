@@ -21,16 +21,17 @@ app.use(express.urlencoded({ extended: false }));
 
 // Define allowed origins
 const allowedOrigins = [
+  'https://venueserv.vercel.app',
   process.env.FRONTEND_URI,
-].filter(Boolean); // Filter out undefined values
+];
 
 // Configure CORS
 app.use(cors({
-  origin: function(origin, callback) {
+  origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps, curl requests)
     if (!origin) return callback(null, true);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
+
+    if (allowedOrigins.indexOf(origin) !== -1 || allowedOrigins.includes('*')) {
       callback(null, true);
     } else {
       console.warn(`Origin ${origin} not allowed by CORS`);
@@ -38,8 +39,8 @@ app.use(cors({
     }
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin']
 }));
 
 app.use(cookieParser(process.env.COOKIE_SECRET));
@@ -61,12 +62,12 @@ app.get('/api/test-cors', (req, res) => {
   res.json({ message: 'CORS is working!' });
 });
 app.get('/', (req, res) => {
-  res.send('Hello World');
+  res.json({ message: 'Backend is working!' });
 });
-app.use("/api/auth",authRouter);
-app.use("/api/user",userRouter);
-app.use("/api/owner",ownerRouter);
-app.use("/api/admin",adminRouter);
+app.use("/api/auth", authRouter);
+app.use("/api/user", userRouter);
+app.use("/api/owner", ownerRouter);
+app.use("/api/admin", adminRouter);
 app.use("/api/stripe", stripeRouter);
 
 // Error handling middleware
@@ -80,5 +81,5 @@ app.use((err, req, res, next) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 })
