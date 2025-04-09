@@ -14,7 +14,9 @@ const PORT = process.env.PORT || 8000;
 
 // Special handling for Stripe webhooks - must be raw body
 app.use('/api/stripe/webhook', express.raw({ type: 'application/json' }));
-
+app.get('/', (req, res) => {
+  res.json({ message: 'Backend is working!' });
+});
 // Regular middleware for all other routes
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -61,9 +63,7 @@ app.use(cookieParser(process.env.COOKIE_SECRET));
 app.get('/api/test-cors', (req, res) => {
   res.json({ message: 'CORS is working!' });
 });
-app.get('/', (req, res) => {
-  res.json({ message: 'Backend is working!' });
-});
+
 app.use("/api/auth", authRouter);
 app.use("/api/user", userRouter);
 app.use("/api/owner", ownerRouter);
