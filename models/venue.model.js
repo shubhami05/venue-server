@@ -121,9 +121,13 @@ const VenueSchema = new Schema({
         }],
         validate: {
             validator: function(v) {
-                return v.length >= 1; // Check if the length of the array is at least 1
+                // Only validate if this is a new venue (not being updated)
+                if (this.isNew) {
+                    return Array.isArray(v) && v.length >= 1;
+                }
+                return true;
             },
-            message: props => `At least one photo is required!`
+            message: props => `At least one photo is required for new venues!`
         }
     },
     events: [{

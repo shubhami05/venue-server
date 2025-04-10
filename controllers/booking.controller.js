@@ -44,7 +44,7 @@ const checkAvailability = async (req, res) => {
         const bookingDate = new Date(date);
         bookingDate.setHours(0, 0, 0, 0);
 
-        console.log(bookingDate);
+        console.log("date in normal avbailabilty:", bookingDate);
         // Find any bookings for the same venue and date
         const existingBookings = await BookingModel.find({
             venueId,
@@ -99,9 +99,9 @@ const BookVenue = async (req, res) => {
             timeslot,
             numberOfGuest,
         } = req.body;
-
+        const newdate = new Date(date);
         // First check availability
-        const availabilityCheck = await checkAvailabilityHelper(venueId, date, timeslot);
+        const availabilityCheck = await checkAvailabilityHelper(venueId, newdate, timeslot);
 
         if (!availabilityCheck.isAvailable) {
             return res.status(409).json({
@@ -118,17 +118,7 @@ const BookVenue = async (req, res) => {
                 message: "Venue not found"
             });
         }
-
-        // Calculate amount based on timeslot
-        let amount;
-        if (timeslot === 0) { // Morning
-            amount = venue.withoutFoodRent.morning;
-        } else if (timeslot === 1) { // Evening
-            amount = venue.withoutFoodRent.evening;
-        } else { // Full day
-            amount = venue.withoutFoodRent.fullday;
-        }
-
+        let amount = venue.bookingPay;
         // Create Stripe Payment Intent with all booking details in metadata
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amount * 100, // Convert to cents
@@ -188,49 +178,59 @@ const checkAvailabilityHelper = async (venueId, date, timeslot) => {
                 message: "Please provide timeslot"
             });
         }
+
         if (![0, 1, 2].includes(timeslot)) {
             return res.status(400).json({
                 success: false,
                 message: "Invalid timeslot. Must be 0 (morning), 1 (evening), or 2 (fullday)"
             });
         }
+
         await dbConnect();
-        // Validate timeslot enum
 
-        let message = "Venue is available for the requested time slot";
-
-        const bookingDate = new Date(date);
-        bookingDate.setHours(0, 0, 0, 0);
-
-        console.log(bookingDate);
         // Find any bookings for the same venue and date
         const existingBookings = await BookingModel.find({
             venueId,
-            date: bookingDate,
+            date: date,
             isCancelled: false
         });
 
+        console.log('Searching for bookings on date:', date);
+        console.log('Found bookings:', existingBookings);
+
         let isAvailable = true;
+        let message = "Venue is available for the requested time slot";
+
         if (existingBookings.length > 0) {
             for (const booking of existingBookings) {
-                if (booking.timeslot === 2 || // Full day booking exists
-                    timeslot === 2 || // Requesting full day
-                    timeslot === booking.timeslot) { // Same timeslot
+                // Since timeslot is stored as a number in the model, no need for parseInt
+                const existingTimeslot = booking.timeslot;
+                const requestedTimeslot = timeslot;
+
+                if (existingTimeslot === 2) { // Full day booking exists
                     isAvailable = false;
+                    message = "Venue is already booked for the full day";
+                    break;
+                } else if (requestedTimeslot === 2) { // Requesting full day
+                    isAvailable = false;
+                    message = "Cannot book full day as venue is already booked for part of the day";
+                    break;
+                } else if (existingTimeslot === requestedTimeslot) { // Same timeslot
+                    isAvailable = false;
+                    message = `Venue is already booked for the ${requestedTimeslot === 0 ? 'morning' : 'evening'} slot`;
                     break;
                 }
             }
         }
+
         return {
             isAvailable,
-            message: isAvailable
-                ? "Venue is available for the requested time slot"
-                : "Venue is not available for the requested time slot",
+            message,
             existingBookings: existingBookings.map(booking => ({
                 timeslot: booking.timeslot,
                 date: booking.date
             }))
-        }
+        };
     } catch (error) {
         console.error("Error in checkAvailabilityHelper:", error);
         throw error;
@@ -295,7 +295,7 @@ const getUserBookings = async (req, res) => {
         const userId = req.user._id; // Get user ID from middleware
 
         // Retrieve all bookings for the user with populated venue details
-        const bookings = await BookingModel.find({ 
+        const bookings = await BookingModel.find({
             userId
         })
             .populate('venueId', 'name city address type cancellation cancellationPolicy')
@@ -351,7 +351,7 @@ const getOwnerVenuesBookings = async (req, res) => {
             .populate('venueId', 'name city address type')
             .populate('userId', 'fullname email mobile')
             .sort({ createdAt: -1 }); // Sort by newest first
-        
+
         // Transform the response to make it easier to use in the frontend
         const formattedBookings = bookings.map(booking => ({
             _id: booking._id,
@@ -661,6 +661,7 @@ const createOwnerReservation = async (req, res) => {
         const bookingDate = new Date(date);
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        console.log("date in reservation:", bookingDate);
 
         if (bookingDate < today) {
             return res.status(400).json({
@@ -673,7 +674,8 @@ const createOwnerReservation = async (req, res) => {
         const existingReservation = await BookingModel.findOne({
             venueId,
             date: bookingDate,
-            timeslot: parseInt(timeslot)
+            timeslot: parseInt(timeslot),
+            isOwnerReservation: true
         });
 
         if (existingReservation) {
@@ -684,7 +686,7 @@ const createOwnerReservation = async (req, res) => {
         }
 
         // Use checkAvailabilityHelper to verify venue availability
-        const availabilityCheck = await checkAvailabilityHelper(venueId, date, timeslot);
+        const availabilityCheck = await checkAvailabilityHelper(venueId, bookingDate, timeslot);
 
         if (!availabilityCheck.isAvailable) {
             return res.status(409).json({

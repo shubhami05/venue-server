@@ -73,7 +73,7 @@ const upload = multer({
         files: 10 // Maximum number of files
     }
 }).fields([
-    { name: 'images', maxCount: 10 }
+    { name: 'photos', maxCount: 10 }
 ]);
 
 // Enhanced cleanup function
@@ -109,11 +109,24 @@ const cleanupTempFiles = async (files) => {
 
 // Enhanced upload middleware with better error handling
 const uploadMiddleware = (req, res, next) => {
-    console.log('Starting file upload process...');
-
+    
     upload(req, res, async function (err) {
+        console.log('Starting file upload process...');
+     
+        console.log('Request body:', req.body);
+        console.log('Request files:', req.files);
+    
+        // Check if there are any files to upload
+        if (!req.files && !req.file) {
+            console.log('No new files to upload - proceeding to next middleware');
+            // Attach empty cleanup function to request object
+            req.cleanupFiles = async () => {};
+            next();
+            return;
+        }
         console.log('Upload callback triggered');
-
+        console.log('Processed files:', req.files);
+        
         // Handle file upload errors
         if (err) {
             console.error('File upload error:', err.code || 'UNKNOWN_ERROR');
@@ -163,18 +176,9 @@ const uploadMiddleware = (req, res, next) => {
             });
         }
 
-        // If no files were uploaded when expected
-        if (!req.files && !req.file) {
-            console.log('No files were uploaded');
-            return res.status(400).json({
-                success: false,
-                message: "No files were uploaded"
-            });
-        }
-
         // Log successful upload
         if (req.files) {
-            console.log('Files uploaded successfully:', req.files?.images?.map(f => f.filename));
+            console.log('Files uploaded successfully:', req.files?.photos?.map(f => f.filename));
         } else if (req.file) {
             console.log('File uploaded successfully:', req.file?.filename);
         }
@@ -192,8 +196,21 @@ const uploadMiddleware = (req, res, next) => {
     });
 };
 
+// Create a separate middleware for venue creation that requires images
+const uploadRequired = (req, res, next) => {
+    // For venue creation, we need either new files or existing photos
+    if (!req.files && !req.file && !req.body.photos) {
+        return res.status(400).json({
+            success: false,
+            message: "At least one photo is required for venue creation"
+        });
+    }
+    next();
+};
+
 module.exports = {
     upload: uploadMiddleware,
+    uploadRequired,
     cleanupTempFiles,
     uploadPdf
 };

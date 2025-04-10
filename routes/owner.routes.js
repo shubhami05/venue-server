@@ -1,7 +1,7 @@
 const express = require('express');
 const { VerifyOwner } = require('../middlewares/auth.middleware');
 const { ListNewVenue, getOwnerVenues, getVenue, editVenue, deleteVenue } = require('../controllers/venue.controller');
-const { upload } = require('../middlewares/multer.middleware');
+const { upload, uploadRequired } = require('../middlewares/multer.middleware');
 const { getOwnerVenuesBookings, getBookingById,  deleteBooking,  confirmPayment } = require('../controllers/booking.controller');
 const { fetchInquiryForOwner, getDashboardAnalytics } = require('../controllers/owner.controller');
 const { getOwnerVenueReviews, replyToReview } = require('../controllers/review.controller');
@@ -19,10 +19,10 @@ ownerRouter.use(VerifyOwner); // Verify owner for all routes
 ownerRouter.get("/dashboard/analytics", getDashboardAnalytics); // Get dashboard analytics
 
 // Venue routes
-ownerRouter.post("/venue/send", upload, checkStripeAccount, ListNewVenue);
+ownerRouter.post("/venue/send", upload, uploadRequired, checkStripeAccount, ListNewVenue);
 ownerRouter.get("/venue/fetch", getOwnerVenues); // fetch only owner's venues
 ownerRouter.get("/venue/fetch/:venueId", getVenue); // fetch single venue 
-ownerRouter.put("/venue/edit/:venueId", upload, checkStripeAccount, editVenue); // edit venue
+ownerRouter.put("/venue/edit/:venueId", upload, checkStripeAccount, editVenue); // Images optional for editing
 ownerRouter.delete("/venue/delete/:venueId", deleteVenue); // can delete only his venue
 
 // Booking routes

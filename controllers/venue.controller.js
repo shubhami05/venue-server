@@ -177,126 +177,90 @@ async function ListNewVenue(req, res) {
 // Edit Venue
 const editVenue = async (req, res) => {
     try {
-        const { venueId } = await req.params;
-        const ownerId = await req.user._id;
+        const { venueId } = req.params;
+        const ownerId = req.user._id;
 
-        // Extract form data
-        let {
-            name,
-            type,
-            bookingPay,
-            address,
-            city,
-            description,
-            locationURL,
-            rooms,
-            halls,
-            cancellation,
-            otherFacilities,
-            restrictions,
-            withoutFoodRent,
-            withFoodRent,
-            food,
-            decoration,
-            parking,
-            events,
-            amenities,
-            rules,
-            cancellationPolicy,
-            existingImages,
-            removedImages
-        } = req.body;
-
-        // Parse JSON strings
-        try {
-            if (typeof otherFacilities === 'string') otherFacilities = JSON.parse(otherFacilities);
-            if (typeof restrictions === 'string') restrictions = JSON.parse(restrictions);
-            if (typeof events === 'string') events = JSON.parse(events);
-            if (typeof amenities === 'string') amenities = JSON.parse(amenities);
-            if (typeof withoutFoodRent === 'string') withoutFoodRent = JSON.parse(withoutFoodRent);
-            if (typeof withFoodRent === 'string') withFoodRent = JSON.parse(withFoodRent);
-            if (typeof food === 'string') food = JSON.parse(food);
-            if (typeof decoration === 'string') decoration = JSON.parse(decoration);
-            if (typeof parking === 'string') parking = JSON.parse(parking);
-            if (typeof existingImages === 'string') existingImages = JSON.parse(existingImages);
-            if (typeof removedImages === 'string') removedImages = JSON.parse(removedImages);
-        } catch (parseError) {
-            console.error("Error parsing JSON data:", parseError);
-            return res.status(400).json({
-                success: false,
-                message: "Invalid data format. Please check your input."
-            });
-        }
-
+        // Find the venue
         const venue = await VenueModel.findOne({ _id: venueId, ownerId });
-
         if (!venue) {
             return res.status(404).json({
                 success: false,
-                message: "Venue not found!"
+                message: "Venue not found"
             });
         }
 
-        // Handle image updates
-        let updatedPhotos = [];
-
-        // Keep existing images that weren't removed
-        if (existingImages && Array.isArray(existingImages)) {
-            updatedPhotos = [...existingImages];
+        // Parse existingPhotos and removedPhotos from request body
+        let existingPhotos = [];
+        let removedPhotos = [];
+        try {
+            if (req.body.existingPhotos) {
+                existingPhotos = JSON.parse(req.body.existingPhotos);
+            }
+            if (req.body.removedPhotos) {
+                removedPhotos = JSON.parse(req.body.removedPhotos);
+            }
+        } catch (error) {
+            console.error('Error parsing photos:', error);
+            return res.status(400).json({
+                success: false,
+                message: "Invalid photo data format"
+            });
         }
 
-        // Add newly uploaded images
-        if (req.files?.images && req.files.images.length > 0) {
-            const newImageUrls = await uploadToCloudinary(req.files.images);
-            if (newImageUrls && newImageUrls.length > 0) {
-                updatedPhotos = [...updatedPhotos, ...newImageUrls];
+        // Start with existing photos that weren't removed
+        let updatedPhotos = venue.photos.filter(photo => !removedPhotos.includes(photo));
+
+        // Add any new photos that were uploaded
+        if (req.files?.photos && req.files.photos.length > 0) {
+            const newPhotoUrls = await uploadToCloudinary(req.files.photos);
+            if (newPhotoUrls && newPhotoUrls.length > 0) {
+                updatedPhotos = [...updatedPhotos, ...newPhotoUrls];
             }
         }
 
         // Update venue fields
-        venue.name = name || venue.name;
-        venue.type = type || venue.type;
-        venue.bookingPay = bookingPay || venue.bookingPay;
-        venue.address = address || venue.address;
-        venue.city = city || venue.city;
-        venue.description = description || venue.description;
-        venue.locationURL = locationURL || venue.locationURL;
-        venue.rooms = rooms || venue.rooms;
-        venue.halls = halls || venue.halls;
-        venue.cancellation = cancellation !== undefined ? cancellation : venue.cancellation;
-        venue.otherFacilities = otherFacilities || venue.otherFacilities;
-        venue.restrictions = restrictions || venue.restrictions;
-        venue.withoutFoodRent = withoutFoodRent || venue.withoutFoodRent;
-        venue.withFoodRent = withFoodRent || venue.withFoodRent;
-        venue.food = food || venue.food;
-        venue.decoration = decoration || venue.decoration;
-        venue.parking = parking || venue.parking;
-        venue.events = events || venue.events;
-        venue.amenities = amenities || venue.amenities;
-        venue.rules = rules !== undefined ? rules : venue.rules;
-        venue.cancellationPolicy = cancellationPolicy !== undefined ? cancellationPolicy : venue.cancellationPolicy;
+        const updateFields = { ...req.body };
+        delete updateFields.existingPhotos;
+        delete updateFields.removedPhotos;
+        delete updateFields.photos;
+
+        // Parse JSON strings if they exist
+        Object.keys(updateFields).forEach(key => {
+            try {
+                if (typeof updateFields[key] === 'string') {
+                    updateFields[key] = JSON.parse(updateFields[key]);
+                }
+            } catch (error) {
+                // If parsing fails, keep the original value
+                console.log(`Failed to parse ${key}, keeping original value`);
+            }
+        });
+
+        // Update venue with new fields and photos
+        Object.assign(venue, updateFields);
         venue.photos = updatedPhotos;
 
+        // Save the updated venue
         await venue.save();
 
-        // Clean up temp files
-        if (req.files) {
+        // Clean up temporary files if any were uploaded
+        if (req.cleanupFiles) {
             await req.cleanupFiles();
         }
 
         return res.status(200).json({
             success: true,
-            message: "Venue updated successfully!",
+            message: "Venue updated successfully",
             venue
         });
     } catch (error) {
-        console.error("Venue update error:", error);
-        if (req.files) {
-            await cleanupTempFiles(req.files);
+        console.error('Error updating venue:', error);
+        if (req.cleanupFiles) {
+            await req.cleanupFiles();
         }
         return res.status(500).json({
             success: false,
-            message: "Server error!",
+            message: "Failed to update venue",
             error: error.message
         });
     }
