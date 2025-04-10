@@ -16,9 +16,12 @@ const generateToken = (user) => {
 const setCookie = (res, token) => {
     res.cookie("auth_token", token, {
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+        secure: true, // Always use secure in production
+        sameSite: 'none', // Allow cross-site cookies
+        maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+        domain: process.env.NODE_ENV === 'production' ? '.venueserv.vercel.app' : undefined, // Set domain for production
+        path: '/', // Make cookie available across all paths
+        partitioned: true // Enable partitioned cookies for better cross-site support
     });
 };
 
