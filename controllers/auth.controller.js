@@ -7,15 +7,16 @@ const jwt = require("jsonwebtoken");
 const generateToken = (user) => {
     return jwt.sign(
         { id: user._id, role: user.role },
-        process.env.COOKIE_SECRET || "venueserv-secret-key",
+        process.env.COOKIE_SECRET,
         { expiresIn: "7d" }
     );
 };
 
 // Set cookie function
 const setCookie = (res, token) => {
-     res.cookie.set("auth_token", token, {
+    res.cookie("auth_token", token, {
         httpOnly: true,
+        sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 };
@@ -102,15 +103,15 @@ async function LoginApi(req, res) {
                 message: "Invalid Credentials!"
             })
         }
-        
+
         const UserInfo = await UserModel.findById(isUserExist._id).select("_id email mobile fullname role");
-        
+
         // Generate JWT token
         const token = generateToken(UserInfo);
-        
+
         // Set cookie with the token
         setCookie(res, token);
-        
+
         return res.status(200).json({
             success: true,
             message: "User logged in successfully!",
@@ -129,7 +130,7 @@ async function LogoutApi(req, res) {
     try {
         // Clear the auth cookie
         res.clearCookie("auth_token");
-        
+
         return res.status(200).json({
             success: true,
             message: "User logged out successfully!"
