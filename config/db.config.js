@@ -18,6 +18,7 @@ const dbConnect = async () => {
             serverSelectionTimeoutMS: 15000,
             socketTimeoutMS: 45000,
             connectTimeoutMS: 15000,
+            dbName: process.env.DB_NAME, // Specify the database name if needed
         };
 
         // Connect to MongoDB
