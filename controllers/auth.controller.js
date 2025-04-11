@@ -59,9 +59,16 @@ async function SignupApi(req, res) {
         })
         await user.save();
 
+        // Generate JWT token for the new user
+        const token = generateToken(user);
+
+        // Set cookie with the token
+        setCookie(res, token);
+
         return res.status(200).json({
             success: true,
-            message: "User created successfully!"
+            message: "User created successfully!",
+            role: user.role
         })
 
     } catch (error) {
@@ -170,4 +177,49 @@ async function FetchUserData(req, res) {
     }
 }
 
-module.exports = { SignupApi, LoginApi, LogoutApi, FetchUserData }
+async function ChangePasswordApi(req, res) {
+    try {
+        const { currentPassword, newPassword } = req.body;
+        const userId = req.user._id;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(412).json({
+                success: false,
+                message: "All fields are required!"
+            });
+        }
+
+        await dbConnect();
+        const user = await UserModel.findById(userId);
+
+        // Verify current password
+        const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+        if (!isPasswordValid) {
+            return res.status(401).json({
+                success: false,
+                message: "Current password is incorrect!"
+            });
+        }
+
+        // Hash new password
+        const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+
+        // Update password
+        await UserModel.findByIdAndUpdate(userId, {
+            password: hashedNewPassword
+        });
+
+        return res.status(200).json({
+            success: true,
+            message: "Password updated successfully!"
+        });
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Something went wrong, Please try again!"
+        });
+    }
+}
+
+module.exports = { SignupApi, LoginApi, LogoutApi, FetchUserData, ChangePasswordApi }

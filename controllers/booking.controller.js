@@ -787,7 +787,7 @@ const getOwnerReservations = async (req, res) => {
         }).populate('venueId', 'name city address type');
 
         if (reservations.length === 0) {
-            return res.status(404).json({
+            return res.status(201).json({
                 success: true,
                 message: "No reservations found",
                 reservations: []

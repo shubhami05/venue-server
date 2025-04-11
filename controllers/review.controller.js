@@ -182,6 +182,7 @@ const getOwnerVenueReviews = async (req, res) => {
                 city: review.venueId.city,
                 type: review.venueId.type
             },
+            ownerReply: review.ownerReply,
             rating: review.rating,
             message: review.message,
             createdAt: review.createdAt
