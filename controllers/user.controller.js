@@ -70,7 +70,7 @@ async function RegisterOwner(req, res) {
         }
         return res.status(500).json({
             success: false,
-            message: error.message || "Something went wrong!",
+            message: error || "Something went wrong!",
             error: error.message
         });
     }
