@@ -1,8 +1,8 @@
 const express = require("express")
 const { VerifyAdmin } = require("../middlewares/auth.middleware");
-const { getAllUsers, getAllOwners, changeVenueStatus, getPendingVenues, getPendingOwnerApplications, changeOwnerStatus, getAllInquiries, getDashboardStats, getAllContacts, replyToContact, deleteContact } = require("../controllers/admin.controller");
+const { getAllUsers, getAllOwners, changeVenueStatus, getPendingVenues, getPendingOwnerApplications, changeOwnerStatus, getAllInquiries, getDashboardStats, getAllContacts, replyToContact, deleteContact, getPlatformEarnings } = require("../controllers/admin.controller");
 const { getVenue, getAllVenues } = require("../controllers/venue.controller");
-const { getAllBookings } = require("../controllers/booking.controller");
+const { getAllBookings, deleteBooking } = require("../controllers/booking.controller");
 const { getAllReviews, adminDeleteReview } = require("../controllers/review.controller");
 const { getConfig, updateConfig } = require("../controllers/config.controller");
 const adminRouter = express.Router();
@@ -34,6 +34,7 @@ adminRouter.delete("/review/delete/:reviewId", adminDeleteReview);
 
 // Booking management routes
 adminRouter.get("/bookings/fetch", getAllBookings);
+adminRouter.delete("/bookings/delete/:bookingId", deleteBooking);
 
 // Inquiry management routes
 adminRouter.get("/inquiries/fetch", getAllInquiries);
@@ -46,5 +47,8 @@ adminRouter.delete("/contact/delete/:contactId", deleteContact);
 // Configuration routes
 adminRouter.get("/config", getConfig);
 adminRouter.post("/config/update", updateConfig);
+
+// Platform earnings route
+adminRouter.get("/earnings", getPlatformEarnings);
 
 module.exports = { adminRouter };

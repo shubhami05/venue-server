@@ -3,14 +3,14 @@ const { RegisterOwner, sendInquiry, submitContactForm } = require('../controller
 const { VerifyCookie } = require('../middlewares/auth.middleware');
 const { uploadPdf } = require('../middlewares/multer.middleware');
 const { getVenue, getAllVenues } = require('../controllers/venue.controller');
-const { BookVenue, checkAvailability, getUserBookings, cancelBooking, confirmPayment } = require('../controllers/booking.controller');
+const { createBooking, checkAvailability, getUserBookings, cancelBooking, confirmPayment } = require('../controllers/booking.controller');
 const { createReview, getVenueReviews, getUserReviews, deleteReview } = require('../controllers/review.controller');
 const userRouter = express.Router();
 
 userRouter.post("/register-for-owner", VerifyCookie, uploadPdf, RegisterOwner);
 
 userRouter.get("/booking/fetch", VerifyCookie, getUserBookings); //user's all bookings
-userRouter.post("/booking/create", VerifyCookie, BookVenue);// book new one
+userRouter.post("/booking/create", VerifyCookie, createBooking); // create new booking
 userRouter.post("/booking/cancel/:bookingId", VerifyCookie, cancelBooking);
 userRouter.post("/booking/confirm", VerifyCookie, confirmPayment); //confirm booking after payment
 
@@ -21,7 +21,7 @@ userRouter.delete("/review/delete/:reviewId", VerifyCookie, deleteReview); //del
 
 userRouter.get("/venue/fetch", getAllVenues); //list available venues with status true
 userRouter.get("/venue/fetch/:venueId", getVenue); //single venue data
-userRouter.post("/venue/check-availability",VerifyCookie,checkAvailability); //check venue availability
+userRouter.post("/venue/check-availability", VerifyCookie, checkAvailability); //check venue availability
 userRouter.post("/inquiry/send", VerifyCookie, sendInquiry); //send inquiry
 userRouter.post("/contact/send", submitContactForm); //send contact form (no auth required)
 

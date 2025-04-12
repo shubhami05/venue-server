@@ -27,7 +27,7 @@ const BookingSchema = new Schema({
     },
     paymentStatus: {
         type: String,
-        enum: ['pending', 'completed', 'failed'],
+        enum: ['pending', 'completed', 'failed', 'refunded'],
         default: 'pending'
     },
     stripePaymentId: {
@@ -36,6 +36,19 @@ const BookingSchema = new Schema({
     amount: {
         type: Number,
         required: true
+    },
+    platformFee: {
+        type: Number,
+        required: true
+    },
+    totalAmount: {
+        type: Number,
+        required: true
+    },
+    ownerEarnings: {
+        type: Number,
+        required: true,
+        default: 0
     },
     // New fields for owner reservations
     isOwnerReservation: {
@@ -48,6 +61,9 @@ const BookingSchema = new Schema({
     isCancelled: {
         type: Boolean,
         default: false
+    },
+    paymentIntentId: {
+        type: String
     }
 }, { timestamps: true })
 

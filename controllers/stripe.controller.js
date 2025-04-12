@@ -3,6 +3,7 @@ const { VenueModel } = require('../models/venue.model');
 const { BookingModel } = require('../models/booking.model');
 const { UserModel } = require('../models/user.model');
 const { StripeAccountModel } = require('../models/stripeAccount.model');
+const { dbConnect } = require("../config/db.config");
 
 /**
  * Create a Stripe Connect account for a venue owner
@@ -86,61 +87,38 @@ async function createConnectAccount(req, res) {
  */
 async function createPaymentIntent(req, res) {
     try {
-        const { venueId, amount, bookingId } = req.body;
-        
-        // Get the venue and its owner
-        const venue = await VenueModel.findById(venueId).populate('ownerId');
-        
-        if (!venue) {
-            return res.status(404).json({
-                success: false,
-                message: 'Venue not found'
-            });
-        }
-        
-        // Get the owner's Stripe account
-        const stripeAccount = await StripeAccountModel.findOne({ userId: venue.ownerId });
-        
-        if (!stripeAccount || !stripeAccount.chargesEnabled) {
-            return res.status(400).json({
-                success: false,
-                message: 'Venue owner has not set up Stripe Connect or account is not active'
-            });
-        }
-        
-        // Calculate the platform fee
-        const platformFeeAmount = Math.round(amount * PLATFORM_FEE_DECIMAL);
-        
-        // Create a payment intent
+        const { amount, venueId, userId, date, timeslot, numberOfGuest } = req.body;
+
+        // Calculate platform fee and owner earnings
+        const platformFee = Math.round(amount * PLATFORM_FEE_DECIMAL);
+        const ownerEarnings = amount - platformFee;
+
+        // Create payment intent
         const paymentIntent = await stripe.paymentIntents.create({
             amount: amount * 100, // Convert to cents
             currency: 'inr',
-            application_fee_amount: platformFeeAmount * 100, // Convert to cents
-            transfer_data: {
-                destination: stripeAccount.stripeAccountId,
-            },
             metadata: {
                 venueId,
-                bookingId,
-                ownerId: venue.ownerId._id.toString()
+                userId,
+                date,
+                timeslot,
+                numberOfGuest,
+                amount,
+                platformFee,
+                ownerEarnings
             }
         });
-        
-        // Update the booking with the payment intent ID
-        await BookingModel.findByIdAndUpdate(bookingId, {
-            paymentIntentId: paymentIntent.id,
-            paymentStatus: 'pending'
-        });
-        
+
         return res.status(200).json({
             success: true,
             clientSecret: paymentIntent.client_secret
         });
     } catch (error) {
-        console.error('Error creating payment intent:', error);
+        console.error("Error creating payment intent:", error);
         return res.status(500).json({
             success: false,
-            message: 'Failed to create payment intent'
+            message: "Error creating payment intent",
+            error: error.message
         });
     }
 }
@@ -192,8 +170,7 @@ async function handlePaymentIntentSucceeded(paymentIntent) {
         
         // Update the booking status
         await BookingModel.findByIdAndUpdate(bookingId, {
-            paymentStatus: 'completed',
-            status: 'confirmed'
+            paymentStatus: 'completed'
         });
         
         // You can add additional logic here, such as sending notifications

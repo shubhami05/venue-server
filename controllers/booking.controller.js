@@ -1,6 +1,7 @@
 const { dbConnect } = require("../config/db.config");
 const { BookingModel } = require("../models/booking.model");
 const { VenueModel } = require("../models/venue.model");
+const { PLATFORM_FEE_DECIMAL } = require("../config/stripe.config");
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // Function to check booking availability
@@ -90,7 +91,7 @@ const checkAvailability = async (req, res) => {
 // Original BookVenue function
 const BookVenue = async (req, res) => {
     try {
-        const user = req.user; // Remove await as req.user is already available from middleware
+        const user = req.user;
         await dbConnect();
 
         const {
@@ -119,9 +120,13 @@ const BookVenue = async (req, res) => {
             });
         }
         let amount = venue.bookingPay;
+        const platformFee = Math.round(amount * PLATFORM_FEE_DECIMAL);
+        const totalAmount = amount + platformFee;
+        const ownerEarnings = amount - platformFee;
+
         // Create Stripe Payment Intent with all booking details in metadata
         const paymentIntent = await stripe.paymentIntents.create({
-            amount: amount * 100, // Convert to cents
+            amount: totalAmount * 100, // Convert to cents
             currency: 'inr',
             metadata: {
                 venueId: venueId.toString(),
@@ -129,14 +134,15 @@ const BookVenue = async (req, res) => {
                 date: date,
                 timeslot: timeslot.toString(),
                 numberOfGuest: numberOfGuest.toString(),
-                amount: amount.toString()
+                amount: amount.toString(),
+                platformFee: platformFee.toString(),
+                totalAmount: totalAmount.toString(),
+                ownerEarnings: ownerEarnings.toString()
             },
             automatic_payment_methods: {
                 enabled: true,
             }
         });
-
-
 
         return res.status(201).json({
             success: true,
@@ -264,7 +270,7 @@ const getAllBookings = async (req, res) => {
                 email: booking.userId.email,
                 phone: booking.userId.mobile
             },
-            amount: booking.amount,
+            amount: booking.totalAmount,
             paymentStatus: booking.paymentStatus,
             date: booking.date,
             timeslot: booking.timeslot,
@@ -465,36 +471,90 @@ const getBookingById = async (req, res) => {
 // Delete a booking
 const deleteBooking = async (req, res) => {
     try {
+        const { bookingId } = req.params;
+        const userId = req.user._id;
         await dbConnect();
 
-        const { bookingId } = req.params;
-
-        if (!bookingId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Please provide booking ID'
-            });
-        }
-
-        // Find and remove the booking
-        const booking = await BookingModel.findByIdAndDelete(bookingId);
+        // Find the booking
+        const booking = await BookingModel.findById(bookingId);
 
         if (!booking) {
             return res.status(404).json({
                 success: false,
-                message: 'Booking not found'
+                message: "Booking not found"
+            });
+        }
+        await BookingModel.findByIdAndDelete(bookingId);
+
+  
+        
+        return res.status(200).json({
+            success: true,
+            message: "Booking cancelled successfully",
+            booking
+        });
+    } catch (error) {
+        console.error("Error in deleteBooking:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
+// Create a new booking
+const createBooking = async (req, res) => {
+    try {
+        const { venueId, date, timeslot, numberOfGuest, amount } = req.body;
+        const userId = req.user._id;
+
+        // Validate input
+        if(timeslot === undefined){
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide timeslot'
+            });
+        }
+        if (!venueId || !date || !numberOfGuest || !amount) {
+            return res.status(400).json({
+                success: false,
+                message: 'Please provide all required fields'
             });
         }
 
-        return res.status(200).json({
+        // Calculate platform fee (3%)
+        const platformFee = amount * PLATFORM_FEE_DECIMAL;
+        const totalAmount = amount + platformFee;
+
+        // Create payment intent with total amount
+        const paymentIntent = await stripe.paymentIntents.create({
+            amount: Math.round(totalAmount * 100), // Convert to cents
+            currency: 'inr',
+            metadata: {
+                venueId: venueId,
+                userId: userId.toString(),
+                date: date,
+                timeslot: timeslot.toString(),
+                numberOfGuest: numberOfGuest.toString(),
+                amount: amount.toString(),
+                platformFee: platformFee.toString(),
+                totalAmount: totalAmount.toString(),
+                ownerEarnings: (amount - platformFee).toString()
+            }
+        });
+
+        res.status(201).json({
             success: true,
-            message: 'Booking deleted successfully'
+            clientSecret: paymentIntent.client_secret,
+            paymentIntentId: paymentIntent.id,
+            amount: totalAmount
         });
     } catch (error) {
-        console.error('Error in deleteBooking:', error);
-        return res.status(500).json({
+        console.error('Error creating payment intent:', error);
+        res.status(500).json({
             success: false,
-            message: 'Internal server error',
+            message: 'Error creating payment intent',
             error: error.message
         });
     }
@@ -503,53 +563,46 @@ const deleteBooking = async (req, res) => {
 // Update confirmPayment function to handle the actual booking confirmation
 const confirmPayment = async (req, res) => {
     try {
+        const { paymentIntentId } = await req.body;
         await dbConnect();
 
-        const { paymentIntentId } = req.body;
-
-        // Verify payment intent
-        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
-
-        if (paymentIntent.status === 'succeeded') {
-            // Extract booking details from payment intent metadata
-            const {
-                venueId,
-                userId,
-                date,
-                timeslot,
-                numberOfGuest,
-                amount
-            } = paymentIntent.metadata;
-
-            // Skip availability check since payment is already processed
-            // This prevents the "venue is not available" error after successful payment
-
-            // Create new booking with confirmed status
-            const newBooking = new BookingModel({
-                venueId,
-                userId,
-                date: new Date(date),
-                timeslot: parseInt(timeslot),
-                numberOfGuest: parseInt(numberOfGuest),
-                amount: parseFloat(amount),
-                paymentStatus: 'completed',
-                stripePaymentId: paymentIntentId,
-                isCancelled: false
-            });
-
-            await newBooking.save();
-
-            return res.status(200).json({
-                success: true,
-                message: "Payment confirmed and booking created successfully",
-                booking: newBooking
-            });
-        } else {
+        if(!paymentIntentId){
             return res.status(400).json({
                 success: false,
-                message: "Payment failed"
+                message: 'Please provide payment intent ID'
             });
         }
+        console.log("paymentIntentId:", paymentIntentId);
+        
+        // Retrieve payment intent to get metadata
+        const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+        
+        // Create the booking with completed status
+        const booking = await BookingModel.create({
+            venueId: paymentIntent.metadata.venueId,
+            userId: paymentIntent.metadata.userId,
+            date: paymentIntent.metadata.date,
+            timeslot: parseInt(paymentIntent.metadata.timeslot),
+            numberOfGuest: parseInt(paymentIntent.metadata.numberOfGuest),
+            amount: parseFloat(paymentIntent.metadata.amount),
+            platformFee: parseFloat(paymentIntent.metadata.platformFee),
+            totalAmount: parseFloat(paymentIntent.metadata.totalAmount),
+            paymentStatus: 'completed',
+            stripePaymentId: paymentIntentId
+        });
+
+        if (!booking) {
+            return res.status(404).json({
+                success: false,
+                message: "Failed to create booking"
+            });
+        }
+        
+        return res.status(200).json({
+            success: true,
+            message: "Payment confirmed and booking created successfully",
+            booking
+        });
     } catch (error) {
         console.error("Error in confirmPayment:", error);
         return res.status(500).json({
@@ -704,7 +757,7 @@ const createOwnerReservation = async (req, res) => {
             numberOfGuest: 0,
             paymentStatus: 'completed', // Mark as completed since no payment needed
             isOwnerReservation: true, // Flag to indicate this is an owner reservation
-            amount: 0, // No charge for owner reservations
+            totalAmount: 0, // No charge for owner reservations
             status: 'confirmed', // Explicitly set status
             isCancelled: false // Explicitly set isCancelled to false
         });
@@ -825,7 +878,6 @@ const getOwnerReservations = async (req, res) => {
 };
 
 
-
 module.exports = {
     BookVenue,
     checkAvailability,
@@ -838,5 +890,6 @@ module.exports = {
     cancelBooking,
     createOwnerReservation,
     removeOwnerReservation,
-    getOwnerReservations
+    getOwnerReservations,
+    createBooking
 };

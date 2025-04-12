@@ -7,6 +7,7 @@ const { InquiryModel } = require("../models/inquiry.model");
 const { BookingModel } = require("../models/booking.model");
 const { ContactModel } = require("../models/contact.model");
 const { ReviewModel } = require("../models/review.model");
+const { PLATFORM_FEE_DECIMAL } = require("../config/stripe.config");
 
 // Fetch all users
 const getAllUsers = async (req, res) => {
@@ -473,16 +474,60 @@ const getAllInquiries = async (req, res) => {
     }
 };
 
+// Helper function to generate revenue trend for the last 6 months
+const generateRevenueTrend = async () => {
+    const now = new Date();
+    const months = [];
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    
+    // Generate last 6 months
+    for (let i = 5; i >= 0; i--) {
+        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        months.push({
+            month: monthNames[month.getMonth()],
+            year: month.getFullYear(),
+            startDate: new Date(month.getFullYear(), month.getMonth(), 1),
+            endDate: new Date(month.getFullYear(), month.getMonth() + 1, 0)
+        });
+    }
+    
+    // Calculate revenue and booking counts for each month
+    const revenueTrend = [];
+    
+    for (const monthData of months) {
+        const bookings = await BookingModel.find({
+            paymentStatus: 'completed',
+            createdAt: {
+                $gte: monthData.startDate,
+                $lte: monthData.endDate
+            }
+        });
+        
+        const amount = bookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
+        const platformFee = amount * PLATFORM_FEE_DECIMAL;
+        const bookingCount = bookings.length;
+        
+        revenueTrend.push({
+            month: monthData.month,
+            amount,
+            platformFee,
+            bookingCount
+        });
+    }
+    
+    return revenueTrend;
+};
+
 // Dashboard statistics
 const getDashboardStats = async (req, res) => {
     try {
         await dbConnect();
 
         // Fetch counts
-        const totalUsers = await UserModel.countDocuments();
+        const totalUsers = await UserModel.countDocuments({role:'user'});
         const totalOwners = await UserModel.countDocuments({ role: 'owner' });
-        const totalVenues = await VenueModel.countDocuments();
-        const totalBookings = await BookingModel.countDocuments();
+        const totalVenues = await VenueModel.countDocuments({status: 'accepted'});
+        const totalBookings = await BookingModel.countDocuments({paymentStatus: 'completed'});
         
         // Venue status distribution
         const activeVenues = await VenueModel.countDocuments({ status: 'accepted' });
@@ -493,7 +538,7 @@ const getDashboardStats = async (req, res) => {
         const pendingOwners = await OwnerApplicationModel.countDocuments({ status: 'pending' });
         
         // Fetch total reviews count
-        const totalReviews = await ReviewModel.countDocuments();
+        const totalContacts = await ContactModel.countDocuments();
         
         // Fetch total inquiries count
         const totalInquiries = await InquiryModel.countDocuments();
@@ -531,11 +576,12 @@ const getDashboardStats = async (req, res) => {
             amount: booking.amount,
             paymentStatus: booking.paymentStatus || 'pending'
         }));
-        
+
         // Calculate total revenue from completed bookings only
         const completedBookings = await BookingModel.find({ paymentStatus: 'completed' });
         const totalRevenue = completedBookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
-        
+        const platformFee = totalRevenue * PLATFORM_FEE_DECIMAL;
+        const platformFeeTrend = await generateRevenueTrend(true);
         // Generate revenue trend (last 6 months)
         const revenueTrend = await generateRevenueTrend();
         
@@ -554,16 +600,18 @@ const getDashboardStats = async (req, res) => {
             totalVenues,
             totalBookings,
             totalRevenue,
+            platformFee,
             activeVenues,
             pendingVenues,
             blockedVenues,
             pendingOwners,
-            totalReviews,
+            totalContacts,
             totalInquiries,
             recentBookings: formattedRecentBookings,
             recentReviews: formattedRecentReviews,
             revenueTrend,
-            paymentStats
+            paymentStats,
+            platformFee
         });
     } catch (error) {
         console.error("Error fetching dashboard stats:", error);
@@ -573,46 +621,6 @@ const getDashboardStats = async (req, res) => {
             error: error.message
         });
     }
-};
-
-// Helper function to generate revenue trend for the last 6 months
-const generateRevenueTrend = async () => {
-    const now = new Date();
-    const months = [];
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    
-    // Generate last 6 months
-    for (let i = 5; i >= 0; i--) {
-        const month = new Date(now.getFullYear(), now.getMonth() - i, 1);
-        months.push({
-            month: monthNames[month.getMonth()],
-            year: month.getFullYear(),
-            startDate: new Date(month.getFullYear(), month.getMonth(), 1),
-            endDate: new Date(month.getFullYear(), month.getMonth() + 1, 0)
-        });
-    }
-    
-    // Calculate revenue for each month (only completed bookings)
-    const revenueTrend = [];
-    
-    for (const monthData of months) {
-        const bookings = await BookingModel.find({
-            paymentStatus: 'completed',
-            createdAt: {
-                $gte: monthData.startDate,
-                $lte: monthData.endDate
-            }
-        });
-        
-        const amount = bookings.reduce((sum, booking) => sum + (booking.amount || 0), 0);
-        
-        revenueTrend.push({
-            month: monthData.month,
-            amount
-        });
-    }
-    
-    return revenueTrend;
 };
 
 // Fetch all contacts
@@ -758,6 +766,41 @@ const deleteContact = async (req, res) => {
     }
 };
 
+const getPlatformEarnings = async (req, res) => {
+    try {
+        await dbConnect();
+        
+        // Get all completed bookings
+        const bookings = await BookingModel.find({
+            paymentStatus: 'completed',
+            isCancelled: false
+        });
+        
+        // Calculate total platform earnings
+        const totalEarnings = bookings.reduce((sum, booking) => sum + booking.platformFee, 0);
+        
+        // Get monthly breakdown
+        const monthlyBreakdown = bookings.reduce((acc, booking) => {
+            const month = booking.date.toISOString().slice(0, 7); // YYYY-MM format
+            acc[month] = (acc[month] || 0) + booking.platformFee;
+            return acc;
+        }, {});
+        
+        return res.status(200).json({
+            success: true,
+            totalEarnings,
+            monthlyBreakdown
+        });
+    } catch (error) {
+        console.error("Error fetching platform earnings:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch platform earnings",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getAllUsers,
     getAllOwners,
@@ -769,5 +812,6 @@ module.exports = {
     getDashboardStats,
     getAllContacts,
     replyToContact,
-    deleteContact
+    deleteContact,
+    getPlatformEarnings
 }; 
