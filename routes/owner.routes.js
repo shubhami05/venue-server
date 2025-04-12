@@ -3,7 +3,7 @@ const { VerifyOwner } = require('../middlewares/auth.middleware');
 const { ListNewVenue, getOwnerVenues, getVenue, editVenue, deleteVenue } = require('../controllers/venue.controller');
 const { upload, uploadRequired } = require('../middlewares/multer.middleware');
 const { getOwnerVenuesBookings, getBookingById,  deleteBooking,  confirmPayment } = require('../controllers/booking.controller');
-const { fetchInquiryForOwner, getDashboardAnalytics } = require('../controllers/owner.controller');
+const { fetchInquiryForOwner, getDashboardAnalytics, createSupport } = require('../controllers/owner.controller');
 const { getOwnerVenueReviews, replyToReview } = require('../controllers/review.controller');
 const { getConfig } = require('../controllers/config.controller');
 const { checkStripeAccount } = require('../middlewares/stripe.middleware');
@@ -43,11 +43,10 @@ ownerRouter.post("/review/reply/:reviewId", replyToReview); // for replying to r
 // Inquiry routes
 ownerRouter.get("/inquiry/fetch", fetchInquiryForOwner); // fetch all inquiries
 
-// Profile routes
-ownerRouter.get("/profile"); // user data
-ownerRouter.put("/profile/edit");
-
 // Config routes
 ownerRouter.get("/config", getConfig);
+
+// Support routes
+ownerRouter.post('/support', createSupport);
 
 module.exports = { ownerRouter }

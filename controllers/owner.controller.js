@@ -3,6 +3,7 @@ const { VenueModel } = require("../models/venue.model");
 const { InquiryModel } = require("../models/inquiry.model");
 const { BookingModel } = require("../models/booking.model");
 const { ReviewModel } = require("../models/review.model");
+const {OwnerSupportModel} = require("../models/ownersupport.model");
 
 async function fetchInquiryForOwner(req, res) {
     try {
@@ -108,16 +109,18 @@ async function getDashboardAnalytics(req, res) {
         const pendingReviews = reviews.filter(review => !review.ownerReply || !review.ownerReply.message).length;
         
         // Get pending bookings
-        const pendingBookings = bookings.filter(booking => booking.paymentStatus === 'pending').length;
+        const cancelledBookings = bookings.filter(booking => booking.isCancelled).length;
         
         // Get confirmed bookings
         const confirmedBookings = bookings.filter(booking => booking.paymentStatus === 'completed').length;
         
-        // Monthly bookings statistics (last 6 months)
+        // Monthly bookings and revenue statistics (last 6 months)
         const today = new Date();
         const sixMonthsAgo = new Date(today.getFullYear(), today.getMonth() - 5, 1);
         
         const monthlyBookings = [];
+        const revenueTrend = [];
+        
         for (let i = 0; i < 6; i++) {
             const month = new Date(today.getFullYear(), today.getMonth() - i, 1);
             const monthName = month.toLocaleString('default', { month: 'short' });
@@ -131,16 +134,29 @@ async function getDashboardAnalytics(req, res) {
                 return bookingDate >= startOfMonth && bookingDate <= endOfMonth;
             });
             
+            const monthRevenue = monthBookings.reduce((sum, booking) => {
+                if (booking.paymentStatus === 'completed') {
+                    return sum + booking.amount;
+                }
+                return sum;
+            }, 0);
+            
             monthlyBookings.push({
                 month: monthName,
                 monthYear,
                 count: monthBookings.length,
-                revenue: monthBookings.reduce((sum, booking) => sum + (booking.amount || 0), 0)
+                revenue: monthRevenue
+            });
+            
+            revenueTrend.push({
+                month: monthName,
+                amount: monthRevenue
             });
         }
         
         // Reverse to get chronological order
         monthlyBookings.reverse();
+        revenueTrend.reverse();
         
         // Calculate rating distribution (1-5 stars)
         const ratingDistribution = {
@@ -189,14 +205,15 @@ async function getDashboardAnalytics(req, res) {
                 totalReviews,
                 averageRating,
                 pendingReviews,
-                pendingBookings,
+                cancelledBookings,
                 confirmedBookings,
                 monthlyBookings,
                 pendingVenues,
                 acceptedVenues,
                 rejectedVenues,
                 ratingDistribution,
-                venueRatings
+                venueRatings,
+                revenueTrend
             }
         });
     } catch (error) {
@@ -208,4 +225,45 @@ async function getDashboardAnalytics(req, res) {
     }
 }
 
-module.exports = { fetchInquiryForOwner, getDashboardAnalytics };
+// Create support request
+async function createSupport (req, res) {
+    try {
+        const { subject, message } = req.body;
+        const ownerId = req.user._id;
+
+        // Validate input
+        if (!subject || !message) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide subject and message"
+            });
+        }
+
+        // Create support request
+        const supportRequest = await OwnerSupportModel.create({
+            ownerId,
+            subject,
+            message,
+            status: 'pending'
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: "Support request created successfully",
+            supportRequest
+        });
+    } catch (error) {
+        console.error("Error in createSupport:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Internal server error",
+            error: error.message
+        });
+    }
+};
+
+module.exports = { 
+    fetchInquiryForOwner, 
+    getDashboardAnalytics,
+    createSupport 
+};

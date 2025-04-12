@@ -12,14 +12,13 @@ const ConfigSchema = new Schema({
         type:String
     }],
     featuredVenues:[{
-        type:Schema.Types.ObjectId,
-        ref:"Venue"
+        type: Schema.Types.ObjectId,
+        ref: "Venue"
     }],
     amenities:[{
         type:String
     }]
 });
-
 
 const ConfigModel = (mongoose.models.Config) || mongoose.model("Config", ConfigSchema)
 

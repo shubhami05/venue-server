@@ -680,101 +680,66 @@ const cancelBooking = async (req, res) => {
     }
 };
 
-// Create a reservation for owner's own venue (no payment required)
+// Create a reservation (for venue owners)
 const createOwnerReservation = async (req, res) => {
     try {
         const { venueId, date, timeslot } = req.body;
         const userId = req.user._id;
 
-        // Validate required fields
-        if (!venueId || !date || timeslot === undefined) {
+        // Validate input
+        if (!venueId || !date || !timeslot ) {
             return res.status(400).json({
                 success: false,
-                message: "Missing required fields"
+                message: 'Please provide all required fields'
             });
         }
 
-        // Check if venue exists and belongs to the owner
+        // Get venue details to calculate amount
         const venue = await VenueModel.findById(venueId);
         if (!venue) {
             return res.status(404).json({
                 success: false,
-                message: "Venue not found"
+                message: 'Venue not found'
             });
         }
 
-        if (venue.ownerId.toString() !== userId.toString()) {
-            return res.status(403).json({
-                success: false,
-                message: "You are not authorized to make reservations for this venue"
-            });
+        // Calculate base amount based on timeslot and guests
+        let baseAmount = 0;
+        if (timeslot === 'morning') {
+            baseAmount = venue.pricing.morning * guests;
+        } else if (timeslot === 'evening') {
+            baseAmount = venue.pricing.evening * guests;
+        } else if (timeslot === 'fullDay') {
+            baseAmount = venue.pricing.fullDay * guests;
         }
 
-        // Check if the date is in the past
-        const bookingDate = new Date(date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        console.log("date in reservation:", bookingDate);
-
-        if (bookingDate < today) {
-            return res.status(400).json({
-                success: false,
-                message: "Cannot make reservations for past dates"
-            });
-        }
-
-        // Check if there's already a reservation for this date and timeslot
-        const existingReservation = await BookingModel.findOne({
-            venueId,
-            date: bookingDate,
-            timeslot: parseInt(timeslot),
-            isOwnerReservation: true
-        });
-
-        if (existingReservation) {
-            return res.status(409).json({
-                success: false,
-                message: "A reservation already exists for this date and time slot"
-            });
-        }
-
-        // Use checkAvailabilityHelper to verify venue availability
-        const availabilityCheck = await checkAvailabilityHelper(venueId, bookingDate, timeslot);
-
-        if (!availabilityCheck.isAvailable) {
-            return res.status(409).json({
-                success: false,
-                message: availabilityCheck.message || "Venue is already booked for the requested time slot"
-            });
-        }
-
-        // Create booking with confirmed status and no payment required
-        const newBooking = new BookingModel({
+        // Calculate platform fee (3% of base amount)
+      
+        // Create booking
+        const booking = await BookingModel.create({
             venueId,
             userId,
-            date: bookingDate,
-            timeslot: parseInt(timeslot),
-            numberOfGuest: 0,
-            paymentStatus: 'completed', // Mark as completed since no payment needed
-            isOwnerReservation: true, // Flag to indicate this is an owner reservation
-            totalAmount: 0, // No charge for owner reservations
-            status: 'confirmed', // Explicitly set status
-            isCancelled: false // Explicitly set isCancelled to false
+            date,
+            timeslot,
+            numberOfGuest:0,
+            amount: baseAmount,
+            platformFee:0,
+            totalAmount:0,
+            isOwnerReservation:true,
+            paymentStatus: 'completed',
+            status: 'confirmed'
         });
 
-        await newBooking.save();
-
-        return res.status(201).json({
+        res.status(201).json({
             success: true,
-            message: "Owner reservation created successfully",
-            booking: newBooking
+            message: 'Reservation created successfully',
+            booking
         });
     } catch (error) {
-        console.error("Error in createOwnerReservation:", error);
-        return res.status(500).json({
+        console.error('Error in createOwnerReservation:', error);
+        res.status(500).json({
             success: false,
-            message: "Internal server error",
-            error: error.message
+            message: error.message
         });
     }
 };

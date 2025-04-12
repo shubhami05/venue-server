@@ -8,6 +8,7 @@ const { BookingModel } = require("../models/booking.model");
 const { ContactModel } = require("../models/contact.model");
 const { ReviewModel } = require("../models/review.model");
 const { PLATFORM_FEE_DECIMAL } = require("../config/stripe.config");
+const { OwnerSupportModel } = require("../models/ownersupport.model");  
 
 // Fetch all users
 const getAllUsers = async (req, res) => {
@@ -544,7 +545,7 @@ const getDashboardStats = async (req, res) => {
         const totalInquiries = await InquiryModel.countDocuments();
         
         // Fetch recent bookings
-        const recentBookings = await BookingModel.find()
+        const recentBookings = await BookingModel.find({paymentStatus:'completed',isCancelled:false,isOwnerReservation:false})
             .sort({ createdAt: -1 })
             .limit(5)
             .populate('userId', 'fullname')
@@ -574,6 +575,7 @@ const getDashboardStats = async (req, res) => {
             userName: booking.userId.fullname,
             date: booking.eventDate,
             amount: booking.amount,
+            platformFee: booking.platformFee,
             paymentStatus: booking.paymentStatus || 'pending'
         }));
 
@@ -801,6 +803,92 @@ const getPlatformEarnings = async (req, res) => {
     }
 };
 
+// Fetch all owner support requests
+const getAllOwnerSupport = async (req, res) => {
+    try {
+        await dbConnect();
+        
+        // Get all support requests with owner details
+        const supportRequests = await OwnerSupportModel.find()
+            .populate('ownerId', 'fullname email mobile')
+            .sort({ createdAt: -1 });
+
+        // Format the response
+        const formattedRequests = supportRequests.map(request => ({
+            _id: request._id,
+            subject: request.subject,
+            message: request.message,
+            status: request.status,
+            response: request.response,
+            createdAt: request.createdAt,
+            resolvedAt: request.resolvedAt,
+            owner: {
+                id: request.ownerId._id,
+                name: request.ownerId.fullname,
+                email: request.ownerId.email,
+                phone: request.ownerId.mobile || 'N/A'
+            }
+        }));
+
+        return res.status(200).json({
+            success: true,
+            message: "Owner support requests fetched successfully",
+            supportRequests: formattedRequests
+        });
+    } catch (error) {
+        console.error("Error fetching owner support requests:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch owner support requests",
+            error: error.message
+        });
+    }
+};
+
+const updateOwnerSupport = async (req, res) => {
+    try {
+        const { supportId } = req.params;
+        const { newStatus } = req.body;
+        if (!supportId) {
+            return res.status(400).json({
+                success: false,
+                message: "Support ID is required"
+            });
+        }
+        
+        await dbConnect();
+        
+        // Find and update the support request
+        const supportRequest = await OwnerSupportModel.findByIdAndUpdate(
+            supportId,
+            { status:newStatus }
+        );
+
+        if (!supportRequest) {
+            return res.status(404).json({
+                success: false,
+                message: "Support request not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `Support request set to ${newStatus} successfully`
+        });
+    } catch (error) {
+        console.error("Error updating owner support:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to update owner support",
+            error: error.message
+        });
+    }
+};
+
+
+
+
+
 module.exports = {
     getAllUsers,
     getAllOwners,
@@ -813,5 +901,7 @@ module.exports = {
     getAllContacts,
     replyToContact,
     deleteContact,
-    getPlatformEarnings
+    getPlatformEarnings,
+    getAllOwnerSupport,
+    updateOwnerSupport
 }; 

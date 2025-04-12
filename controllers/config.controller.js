@@ -26,7 +26,6 @@ const getConfig = async (req, res) => {
                 config: defaultConfig
             });
         }
-
         return res.status(200).json({
             success: true,
             message: "Configuration fetched successfully",
@@ -70,10 +69,16 @@ const updateConfig = async (req, res) => {
         
         await config.save();
         
+        // Populate venue details before sending response
+        const populatedConfig = await ConfigModel.findById(config._id).populate({
+            path: 'featuredVenues',
+            select: 'name city type'
+        });
+        
         return res.status(200).json({
             success: true,
             message: "Configuration updated successfully",
-            config
+            config: populatedConfig
         });
     } catch (error) {
         console.error("Error updating configuration:", error);
