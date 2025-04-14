@@ -1,4 +1,5 @@
 const { ConfigModel } = require('../models/config.model');
+const { VenueModel } = require('../models/venue.model');
 const { dbConnect } = require('../config/db.config');
 
 
@@ -90,7 +91,42 @@ const updateConfig = async (req, res) => {
     }
 };
 
+// Get featured venues with full details
+const getFeaturedVenues = async (req, res) => {
+    try {
+        await dbConnect();
+        
+        // Get config to find featured venue IDs
+        const config = await ConfigModel.findOne();
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                message: "Configuration not found"
+            });
+        }
+
+        // Get full venue details for featured venues
+        const venues = await VenueModel.find({
+            _id: { $in: config.featuredVenues },
+            status: 'accepted' // Only get accepted venues
+        });
+
+        return res.status(200).json({
+            success: true,
+            venues
+        });
+    } catch (error) {
+        console.error("Error fetching featured venues:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Error fetching featured venues",
+            error: error.message
+        });
+    }
+};
+
 module.exports = {
     getConfig,
-    updateConfig
+    updateConfig,
+    getFeaturedVenues
 }; 

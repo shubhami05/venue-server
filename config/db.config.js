@@ -3,7 +3,7 @@ const mongoose = require("mongoose")
 const dbConnect = async () => {
     try {
         // Check if there's already an active connection
-        if (mongoose.connection.readyState === 1) {
+        if (mongoose?.connection?.readyState === 1) {
             console.log('MongoDB already connected');
             return;
         }

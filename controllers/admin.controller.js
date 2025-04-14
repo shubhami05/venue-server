@@ -885,6 +885,42 @@ const updateOwnerSupport = async (req, res) => {
     }
 };
 
+const deleteOwnerSupport = async (req, res) => {
+    try {
+        const { supportId } = req.params;
+        if (!supportId) {
+            return res.status(400).json({
+                success: false,
+                message: "Support ID is required"
+            });
+        }
+
+        await dbConnect();
+        
+        // Find and delete the support request
+        const supportRequest = await OwnerSupportModel.findByIdAndDelete(supportId);
+        
+        if (!supportRequest) {
+            return res.status(404).json({
+                success: false,
+                message: "Support request not found"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: "Support request deleted successfully"
+        });
+    } catch (error) {
+        console.error("Error deleting owner support:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to delete owner support",
+            error: error.message
+        });
+    }
+};
+
 
 
 
@@ -903,5 +939,6 @@ module.exports = {
     deleteContact,
     getPlatformEarnings,
     getAllOwnerSupport,
-    updateOwnerSupport
+    updateOwnerSupport,
+    deleteOwnerSupport
 }; 

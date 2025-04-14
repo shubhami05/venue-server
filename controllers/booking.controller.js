@@ -270,6 +270,7 @@ const getAllBookings = async (req, res) => {
                 email: booking.userId.email,
                 phone: booking.userId.mobile
             },
+            platformFee: booking.platformFee,
             amount: booking.totalAmount,
             paymentStatus: booking.paymentStatus,
             date: booking.date,

@@ -1,6 +1,6 @@
 const express = require("express")
 const { VerifyAdmin } = require("../middlewares/auth.middleware");
-const { getAllUsers, getAllOwners, changeVenueStatus, getPendingVenues, getPendingOwnerApplications, changeOwnerStatus, getAllInquiries, getDashboardStats, getAllContacts, replyToContact, deleteContact, getPlatformEarnings, getAllOwnerSupport, updateOwnerSupport } = require("../controllers/admin.controller");
+const { getAllUsers, getAllOwners, changeVenueStatus, getPendingVenues, getPendingOwnerApplications, changeOwnerStatus, getAllInquiries, getDashboardStats, getAllContacts, replyToContact, deleteContact, getPlatformEarnings, getAllOwnerSupport, updateOwnerSupport, deleteOwnerSupport } = require("../controllers/admin.controller");
 const { getVenue, getAllVenues } = require("../controllers/venue.controller");
 const { getAllBookings, deleteBooking } = require("../controllers/booking.controller");
 const { getAllReviews, adminDeleteReview } = require("../controllers/review.controller");
@@ -54,6 +54,7 @@ adminRouter.get("/earnings", getPlatformEarnings);
 // Owner support routes
 adminRouter.get("/owner/support", getAllOwnerSupport);
 adminRouter.put("/owner/support/:supportId", updateOwnerSupport);
+adminRouter.delete("/owner/support/:supportId", deleteOwnerSupport);
 
 
 module.exports = { adminRouter };

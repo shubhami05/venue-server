@@ -371,6 +371,7 @@ const getVenue = async (req, res) => {
                     cancellationPolicy: 1,
                     rating: 1,
                     reviewCount: 1,
+                    locationURL: 1,
                     'owner.name': '$owner.fullname',
                     'owner.email': '$owner.email',
                     'owner.phone': '$owner.mobile'
@@ -391,7 +392,7 @@ const getVenue = async (req, res) => {
         });
     } catch (error) {
         console.error('Venue fetch error:', error);
-        
+
         // Handle specific timeout error
         if (error.name === 'MongooseError' && error.message.includes('buffering timed out')) {
             return res.status(503).json({
@@ -432,10 +433,8 @@ const getOwnerVenues = async (req, res) => {
 // Get All Venues for users
 const getAllVenues = async (req, res) => {
     try {
-        // Check connection state
-        if (mongoose.connection.readyState !== 1) {
-            await dbConnect();
-        }
+        await dbConnect();
+
 
         const options = {
             maxTimeMS: 20000,
