@@ -109,7 +109,7 @@ const getFeaturedVenues = async (req, res) => {
         const venues = await VenueModel.find({
             _id: { $in: config.featuredVenues },
             status: 'accepted' // Only get accepted venues
-        });
+        }).sort({ createdAt: -1 });
 
         return res.status(200).json({
             success: true,

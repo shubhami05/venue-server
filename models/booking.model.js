@@ -61,9 +61,6 @@ const BookingSchema = new Schema({
     isCancelled: {
         type: Boolean,
         default: false
-    },
-    paymentIntentId: {
-        type: String
     }
 }, { timestamps: true })
 

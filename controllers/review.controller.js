@@ -122,6 +122,7 @@ const getVenueReviews = async (req, res) => {
             },
             rating: review.rating,
             message: review.message,
+            ownerReply: review.ownerReply || null,
             createdAt: review.createdAt
         }));
 
