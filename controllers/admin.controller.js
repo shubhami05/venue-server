@@ -529,6 +529,7 @@ const getDashboardStats = async (req, res) => {
         const totalOwners = await UserModel.countDocuments({ role: 'owner' });
         const totalVenues = await VenueModel.countDocuments({status: 'accepted'});
         const totalBookings = await BookingModel.countDocuments({paymentStatus: 'completed'});
+        const totalReviews = await ReviewModel.countDocuments();
         
         // Venue status distribution
         const activeVenues = await VenueModel.countDocuments({ status: 'accepted' });
@@ -602,6 +603,7 @@ const getDashboardStats = async (req, res) => {
             totalVenues,
             totalBookings,
             totalRevenue,
+            totalReviews,
             platformFee,
             activeVenues,
             pendingVenues,
