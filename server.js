@@ -32,6 +32,8 @@ const allowedOrigins = [process.env.FRONTEND_URI];
 
 app.use(cors({
   origin: function (origin, callback) {
+      console.log("Incoming origin:", origin);
+
     if (allowedOrigins.includes(origin) || !origin) {
       callback(null, true);
     } else {
