@@ -22,11 +22,15 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
 // Configure CORS to allow all origins
+// app.use(cors({
+//   origin: process.env.FRONTEND_URI,
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+//   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cookie']
+// }));
 app.use(cors({
-  origin: process.env.FRONTEND_URI,
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Cookie']
+  origin: true,
+  credentials: true
 }));
 
 // Add CORS headers to all responses
